@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tugbo Flood Hazard</title>
+  <meta name="description" content="Interactive flood hazard map for Tugbo River (Philippines).">
+  <meta property="og:title" content="Tugbo Flood Hazard" />
+  <meta property="og:description" content="Interactive flood hazard map with Low/Moderate/High classes." />
+  <style>
+    :root { --bg:#0b1d2b; --fg:#eaf2f8; --sub:#9fb3c5; --btn:#22a6f2; --btnh:#168bd0; }
+    *{box-sizing:border-box} html,body{height:100%;margin:0}
+    body{display:flex;align-items:center;justify-content:center;background:linear-gradient(140deg,#0b1d2b,#112d44);}
+    .wrap{max-width:880px;width:92%;text-align:center;color:var(--fg);font:16px/1.5 system-ui,Segoe UI,Roboto,Arial}
+    h1{font-size:44px;line-height:1.1;margin:0 0 12px}
+    p{margin:6px 0;color:var(--sub)}
+    .cta{margin-top:18px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .btn{background:var(--btn);color:#fff;padding:12px 18px;border-radius:10px;border:0;cursor:pointer;text-decoration:none;font-weight:600}
+    .btn:hover{background:var(--btnh)}
+    .card{margin-top:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);padding:16px;border-radius:12px;text-align:left}
+    .meta{display:flex;gap:16px;flex-wrap:wrap;color:#c8d6e4;font-size:14px}
+    .meta div{display:flex;gap:6px;align-items:center}
+    footer{position:fixed;bottom:10px;left:0;right:0;text-align:center;color:#7f93a6;font-size:12px}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Tugbo Flood Hazard</h1>
+    <p>Interactive hazard map for the Tugbo River AOI (Low · Moderate · High). Built from Google Earth Engine outputs and styled in Mapbox Studio.</p>
+
+    <div class="cta">
+      <a class="btn" href="map.html">Open Map</a>
+      <a class="btn" href="https://studio.mapbox.com/styles/kyahanzzz/cmfjf7zxm005001sb5h4e21av/" target="_blank" rel="noopener">View in Mapbox Studio</a>
+    </div>
+
+    <div class="card">
+      <div class="meta">
+        <div>• Data: NASADEM (DEM), CHIRPS (rainfall) via GEE</div>
+        <div>• Symbology: Low/Moderate/High polygons</div>
+        <div>• Center: 123.639, 12.349 · Zoom 15</div>
+      </div>
+    </div>
+  </main>
+  <footer>© <span id="y"></span> Tugbo Flood Hazard · Built with Mapbox GL JS</footer>
+  <script>document.getElementById('y').textContent = new Date().getFullYear()</script>
+</body>
+</html>
