@@ -38,11 +38,13 @@
 
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.js"></script>
   <script>
+  // Your Mapbox token (keep this one the same)
   mapboxgl.accessToken = 'pk.eyJ1Ijoia3lhaGFuenp6IiwiYSI6ImNtZGR2YmpqMDA4enIya29zY21nY3hxMjQifQ.U3RNv0EJn1yPHwF41JZALA';
 
+  // Use your new style URL
   const map = new mapboxgl.Map({
     container: 'map',
-    style: 'mapbox://styles/kyahanzzz/cmfjf7zxm005001sb5h4e21av',
+    style: 'mapbox://styles/kyahanzzz/cmfkuw87m002o01sj5mdqfqa4',
     center: [123.639, 12.349],
     zoom: 15
   });
@@ -51,8 +53,8 @@
   map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
   map.addControl(new mapboxgl.ScaleControl({ unit:'metric' }), 'bottom-right');
 
-  // Use the Layer ID shown at the top of your layer panel in Studio
-  const FILL_LAYER_ID = 'tugbo-hazard-polygons-9czz71';
+  // New Layer ID from your Studio style
+  const FILL_LAYER_ID = 'tugbo-hazard-polygons-detaile-1yquw1';
 
   map.on('load', () => {
     const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '280px' });
