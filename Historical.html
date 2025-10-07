@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tugbo — Year Layer Toggles (Interactive)</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        html,
+        body,
+        #map {
+            height: 100%;
+            margin: 0
+        }
+
+        .panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 2;
+            background: #fff;
+            color: #1f2a33;
+            border: 1px solid #cfd8dc;
+            border-radius: 14px;
+            box-shadow: 0 6px 22px rgba(0, 0, 0, .18);
+            padding: 12px 14px;
+            width: 250px;
+            font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+        }
+
+        .panel h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            font-weight: 700
+        }
+
+        .legend {
+            margin: 6px 0 8px
+        }
+
+        .legend .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0
+        }
+
+        .legend .sw {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, .24)
+        }
+
+        .divider {
+            margin: 8px 0;
+            border: 0;
+            border-top: 1px dashed #cfd8dc
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0
+        }
+
+        .row label {
+            cursor: pointer
+        }
+
+        .note {
+            font-size: 12px;
+            color: #607d8b;
+            margin-top: 6px
+        }
+
+        input[type="checkbox"] {
+            accent-color: #1e88e5;
+            width: 16px;
+            height: 16px
+        }
+
+        .buttons {
+            display: flex;
+            gap: 8px;
+            margin: 6px 0 2px
+        }
+
+        .buttons button {
+            background: #1e88e5;
+            color: #fff;
+            border: 0;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-weight: 700;
+            cursor: pointer
+        }
+
+        .buttons button.secondary {
+            background: #eceff1;
+            color: #263238
+        }
+
+        .popup {
+            font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif
+        }
+
+        .popup .h {
+            font-weight: 700;
+            margin: 0 0 6px
+        }
+
+        .popup .kv {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 2px 8px
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 999px;
+            font-weight: 700
+        }
+
+        .b-low {
+            background: #c9d9ff
+        }
+
+        .b-mod {
+            background: #9fb4ff
+        }
+
+        .b-high {
+            background: #5d72ff;
+            color: #fff
+        }
+
+        .b-vhigh {
+            background: #3d24ff;
+            color: #fff
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <!-- Control panel -->
+    <div class="panel" id="panel">
+        <h3>Flood Hazard (S1)</h3>
+
+        <div class="legend">
+            <div class="row"><span class="sw" style="background:#c9d9ff"></span><span>Low</span></div>
+            <div class="row"><span class="sw" style="background:#9fb4ff"></span><span>Moderate</span></div>
+            <div class="row"><span class="sw" style="background:#5d72ff"></span><span>High</span></div>
+            <div class="row"><span class="sw" style="background:#3d24ff"></span><span>Very High</span></div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="buttons">
+            <button id="showAll">Show all</button>
+            <button id="hideAll" class="secondary">Hide all</button>
+        </div>
+
+        <!-- Year toggles (OFF initially) -->
+        <div class="row"><input type="checkbox" id="y2021"><label for="y2021">2021</label></div>
+        <div class="row"><input type="checkbox" id="y2022"><label for="y2022">2022</label></div>
+        <div class="row"><input type="checkbox" id="y2023"><label for="y2023">2023</label></div>
+        <div class="row"><input type="checkbox" id="y2024"><label for="y2024">2024</label></div>
+        <div class="row"><input type="checkbox" id="y2025"><label for="y2025">2025</label></div>
+
+        <div class="note" id="status">Looking for layers…</div>
+    </div>
+
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.js"></script>
+    <script>
+        // ========= Setup =========
+        mapboxgl.accessToken = 'pk.eyJ1Ijoia3lhaGFuenp6IiwiYSI6ImNtZGR2YmpqMDA4enIya29zY21nY3hxMjQifQ.U3RNv0EJn1yPHwF41JZALA';
+        const STYLE_URL = 'mapbox://styles/kyahanzzz/cmgg9f4h500ij01s69cewg1dd';
+        const YEARS = [2021, 2022, 2023, 2024, 2025];
+
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: STYLE_URL,
+            center: [123.639, 12.349],
+            zoom: 15
+        });
+        map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
+        map.addControl(new mapboxgl.ScaleControl({ unit: 'metric' }), 'bottom-right');
+
+        // ========= Helpers =========
+        const setVisible = (id, show) => { try { map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none'); } catch { } };
+        const isVisible = id => { try { return map.getLayoutProperty(id, 'visibility') !== 'none'; } catch { return false; } };
+
+        function findYearLayers() {
+            const styleLayers = map.getStyle()?.layers || [];
+            const found = {};
+            YEARS.forEach(y => {
+                const re = new RegExp(String(y));                    // layer id must include the year
+                found[y] = styleLayers.filter(l => re.test(l.id)).map(l => l.id);
+            });
+            return found;
+        }
+
+        // Hazard value ↔ label
+        const CLASS_TEXT = ['(no value)', 'Low', 'Moderate', 'High', 'Very High'];
+        function toLabel(v) {
+            if (v == null || v === '') return '(no value)';
+            const n = Number(v);
+            if (!Number.isNaN(n)) return CLASS_TEXT[n] || String(v);
+            const s = String(v).toLowerCase();
+            if (s.includes('very')) return 'Very High';
+            if (s.includes('high')) return 'High';
+            if (s.includes('mod')) return 'Moderate';
+            if (s.includes('low')) return 'Low';
+            return String(v);
+        }
+        function badgeClass(label) {
+            const s = String(label).toLowerCase();
+            if (s.includes('very')) return 'badge b-vhigh';
+            if (s.includes('high')) return 'badge b-high';
+            if (s.includes('mod')) return 'badge b-mod';
+            if (s.includes('low')) return 'badge b-low';
+            return 'badge';
+        }
+        function getHazardValue(props) {
+            // Try common property names from your exports/styles
+            const keys = ['magnitude', 'mag_code', 'hazard_cls', 'class', 'rank', 'level'];
+            for (const k of keys) if (props[k] !== undefined) return props[k];
+            return undefined;
+        }
+        function prettyYearFromLayerId(id) {
+            const m = id && id.match(/20\d{2}/); return m ? m[0] : '—';
+        }
+
+        // ========= On load =========
+        map.on('load', () => {
+            // keep globe/sky if style supports it
+            try { map.setProjection('globe'); } catch { }
+            try {
+                if (!map.getLayer('sky')) {
+                    map.addLayer({
+                        id: 'sky', type: 'sky',
+                        paint: { 'sky-type': 'atmosphere', 'sky-atmosphere-sun-intensity': 12 }
+                    },
+                        map.getStyle().layers[0]?.id);
+                }
+            } catch { }
+
+            const status = document.getElementById('status');
+            const yearToLayers = findYearLayers();
+
+            // All OFF initially, attach handlers
+            YEARS.forEach(y => {
+                const ids = yearToLayers[y] || [];
+                const cb = document.getElementById('y' + y);
+                cb.checked = false;
+                if (!ids.length) { cb.disabled = true; cb.parentElement.title = `No layers in style matching ${y}`; }
+                ids.forEach(id => setVisible(id, false));
+                cb.addEventListener('change', e => ids.forEach(id => setVisible(id, e.target.checked)));
+                // bring above base
+                ids.forEach(id => { try { map.moveLayer(id); } catch { } });
+            });
+
+            const total = YEARS.reduce((n, y) => n + (yearToLayers[y]?.length || 0), 0);
+            status.textContent = total ? `Found ${total} layer(s) tagged 2021–2025.` :
+                'No matching layers found (layer IDs must include the year).';
+
+            // Show/Hide all
+            document.getElementById('showAll').onclick = () => {
+                YEARS.forEach(y => {
+                    const cb = document.getElementById('y' + y);
+                    if (!cb.disabled) { cb.checked = true; (yearToLayers[y] || []).forEach(id => setVisible(id, true)); }
+                });
+            };
+            document.getElementById('hideAll').onclick = () => {
+                YEARS.forEach(y => {
+                    const cb = document.getElementById('y' + y);
+                    if (!cb.disabled) { cb.checked = false; (yearToLayers[y] || []).forEach(id => setVisible(id, false)); }
+                });
+            };
+
+            // ========= Interactivity (click + hover) =========
+            const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '320px' });
+
+            function visibleYearLayerIds() {
+                const ids = [];
+                YEARS.forEach(y => (yearToLayers[y] || []).forEach(id => { if (isVisible(id)) ids.push(id); }));
+                return ids;
+            }
+
+            map.on('click', (e) => {
+                const ids = visibleYearLayerIds();
+                if (!ids.length) return;
+
+                const feats = map.queryRenderedFeatures(e.point, { layers: ids });
+                if (!feats.length) return;
+
+                // If multiple found, prefer the one highest in the style order (last returned)
+                const f = feats[feats.length - 1];
+                const props = f.properties || {};
+                const year = prettyYearFromLayerId(f.layer.id);
+                const hazardVal = getHazardValue(props);
+                const label = toLabel(hazardVal);
+
+                // Optional: include numeric hazard_idx if present
+                let idxStr = '';
+                if (props.hazard_idx !== undefined) {
+                    const n = Number(props.hazard_idx);
+                    if (!Number.isNaN(n)) idxStr = `<div class="kv"><div>Index</div><div>${n.toFixed(2)}</div></div>`;
+                }
+
+                const html = `<div class="popup">
+          <div class="h">Flood Hazard — ${year}</div>
+          <div class="kv">
+            <div>Class</div>
+            <div><span class="${badgeClass(label)}">${label}</span></div>
+          </div>
+          ${idxStr}
+        </div>`;
+
+                popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+            });
+
+            // Pointer cursor when hovering a visible year layer
+            function updateHoverHandlers() {
+                // clear existing (Mapbox GL doesn't have off-by-layer easily; safe to rebind)
+                YEARS.forEach(y => (yearToLayers[y] || []).forEach(id => {
+                    map.on('mouseenter', id, () => { if (isVisible(id)) map.getCanvas().style.cursor = 'pointer'; });
+                    map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
+                }));
+            }
+            updateHoverHandlers();
+        });
+    </script>
+</body>
+
+</html>
