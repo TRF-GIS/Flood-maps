@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tugbo — Predictive Layers (2026–2030)</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        html,
+        body,
+        #map {
+            height: 100%;
+            margin: 0
+        }
+
+        .panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 2;
+            background: #fff;
+            color: #1f2a33;
+            border: 1px solid #cfd8dc;
+            border-radius: 14px;
+            box-shadow: 0 6px 22px rgba(0, 0, 0, .18);
+            padding: 12px 14px;
+            width: 280px;
+            font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif
+        }
+
+        .panel h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            font-weight: 700
+        }
+
+        .legend {
+            margin: 6px 0 8px
+        }
+
+        .legend .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0
+        }
+
+        .legend .sw {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, .24)
+        }
+
+        .divider {
+            margin: 8px 0;
+            border: 0;
+            border-top: 1px dashed #cfd8dc
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0
+        }
+
+        .row label {
+            cursor: pointer
+        }
+
+        .note {
+            font-size: 12px;
+            color: #607d8b;
+            margin-top: 6px
+        }
+
+        input[type="checkbox"] {
+            accent-color: #1e88e5;
+            width: 16px;
+            height: 16px
+        }
+
+        .buttons {
+            display: flex;
+            gap: 8px;
+            margin: 6px 0 2px
+        }
+
+        .buttons button {
+            background: #1e88e5;
+            color: #fff;
+            border: 0;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-weight: 700;
+            cursor: pointer
+        }
+
+        .buttons button.secondary {
+            background: #eceff1;
+            color: #263238
+        }
+
+        .popup {
+            font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif
+        }
+
+        .popup .h {
+            font-weight: 700;
+            margin: 0 0 6px
+        }
+
+        .popup .kv {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 2px 8px
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 999px;
+            font-weight: 700
+        }
+
+        .b-low {
+            background: #c9d9ff
+        }
+
+        .b-mod {
+            background: #9fb4ff
+        }
+
+        .b-high {
+            background: #5d72ff;
+            color: #fff
+        }
+
+        .b-vhigh {
+            background: #3d24ff;
+            color: #fff
+        }
+
+        select,
+        .scenario {
+            width: 100%
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <div class="panel" id="panel">
+        <h3>Predicted Flood Hazard (S1)</h3>
+
+        <div class="legend">
+            <div class="row"><span class="sw" style="background:#c9d9ff"></span><span>Low</span></div>
+            <div class="row"><span class="sw" style="background:#9fb4ff"></span><span>Moderate</span></div>
+            <div class="row"><span class="sw" style="background:#5d72ff"></span><span>High</span></div>
+            <div class="row"><span class="sw" style="background:#3d24ff"></span><span>Very High</span></div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="row scenario">
+            <label for="scenarioSel" style="width:80px">Scenario</label>
+            <select id="scenarioSel">
+                <option value="auto" selected>Auto-detect</option>
+                <option value="wet">Wet</option>
+                <option value="normal">Normal</option>
+                <option value="dry">Dry</option>
+            </select>
+        </div>
+
+        <div class="buttons">
+            <button id="showAll">Show all</button>
+            <button id="hideAll" class="secondary">Hide all</button>
+        </div>
+
+        <!-- Year toggles -->
+        <div class="row"><input type="checkbox" id="y2026"><label for="y2026">2026</label></div>
+        <div class="row"><input type="checkbox" id="y2027"><label for="y2027">2027</label></div>
+        <div class="row"><input type="checkbox" id="y2028"><label for="y2028">2028</label></div>
+        <div class="row"><input type="checkbox" id="y2029"><label for="y2029">2029</label></div>
+        <div class="row"><input type="checkbox" id="y2030"><label for="y2030">2030</label></div>
+
+        <div class="note" id="status">Toggle years to view layers.</div>
+    </div>
+
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.js"></script>
+    <script>
+        // ========= Config =========
+        mapboxgl.accessToken = 'pk.eyJ1Ijoia3lhaGFuenp6IiwiYSI6ImNtZGR2YmpqMDA4enIya29zY21nY3hxMjQifQ.U3RNv0EJn1yPHwF41JZALA';
+        const STYLE_URL = 'mapbox://styles/kyahanzzz/cmgglgun3009x01ri1tf89vud';
+
+        const YEARS = [2026, 2027, 2028, 2029, 2030];
+        const SCENARIOS = ['dry', 'normal', 'wet'];
+        const TYPE_OK = new Set(['fill', 'line']); // only toggle paint layers
+
+        // Persist UI state
+        const state = {
+            scenario: 'auto',
+            years: Object.fromEntries(YEARS.map(y => [y, false]))
+        };
+        // show 2028 by default
+        state.years[2028] = true;
+
+        // ========= Map =========
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: STYLE_URL,
+            center: [123.639, 12.349],
+            zoom: 15
+        });
+        map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
+        map.addControl(new mapboxgl.ScaleControl({ unit: 'metric' }), 'bottom-right');
+
+        // ========= Helpers =========
+        const setVisible = (id, show) => { try { map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none'); } catch { } };
+        const isVisible = id => { try { return map.getLayoutProperty(id, 'visibility') !== 'none'; } catch { return false; } };
+
+        const CLASS_TEXT = ['(no value)', 'Low', 'Moderate', 'High', 'Very High'];
+        const toLabel = v => {
+            if (v == null || v === '') return '(no value)';
+            const n = Number(v); if (!Number.isNaN(n)) return CLASS_TEXT[n] || String(v);
+            const s = String(v).toLowerCase();
+            if (s.includes('very')) return 'Very High';
+            if (s.includes('high')) return 'High';
+            if (s.includes('mod')) return 'Moderate';
+            if (s.includes('low')) return 'Low';
+            return String(v);
+        };
+        const badgeClass = label => {
+            const s = String(label).toLowerCase();
+            if (s.includes('very')) return 'badge b-vhigh';
+            if (s.includes('high')) return 'badge b-high';
+            if (s.includes('mod')) return 'badge b-mod';
+            if (s.includes('low')) return 'badge b-low';
+            return 'badge';
+        };
+        const getHazardValue = props => {
+            for (const k of ['magnitude', 'mag_code', 'hazard_cls', 'class', 'rank', 'level']) if (props[k] !== undefined) return props[k];
+            return undefined;
+        };
+        const prettyYearFromLayerId = id => { const m = id && id.match(/20\d{2}/); return m ? m[0] : '—'; };
+        const prettyScenarioFromLayerId = id => { const m = id && id.toLowerCase().match(/\b(dry|normal|wet)\b/); return m ? (m[1][0].toUpperCase() + m[1].slice(1)) : '—'; };
+
+        function parseMetaFromId(id) {
+            if (!id) return {};
+            const yearMatch = id.match(/20(2[6-9]|30)/); // 2026..2030
+            const scenMatch = id.toLowerCase().match(/\b(dry|normal|wet)\b/);
+            return { year: yearMatch ? Number(yearMatch[0]) : undefined, scenario: scenMatch ? scenMatch[1] : undefined };
+        }
+
+        function findPredictiveLayers() {
+            const style = map.getStyle();
+            const layers = style?.layers || [];
+            const found = {}; YEARS.forEach(y => { found[y] = { all: [], dry: [], normal: [], wet: [] }; });
+
+            // collect candidates (fill/line only with year in id)
+            const candidates = layers.filter(l => TYPE_OK.has(l.type) && /20(2[6-9]|30)/.test(l.id));
+
+            // prefer fills over outlines
+            candidates.sort((a, b) => (/fill/i.test(b.id) ? 1 : 0) - (/fill/i.test(a.id) ? 1 : 0));
+
+            // bucket by year + scenario
+            for (const l of candidates) {
+                const { year, scenario } = parseMetaFromId(l.id);
+                if (!year || !YEARS.includes(year)) continue;
+                found[year].all.push(l.id);
+                if (scenario && SCENARIOS.includes(scenario)) found[year][scenario].push(l.id);
+            }
+            return found;
+        }
+
+        function activeScenarioKey(yearToLayers) {
+            const sel = state.scenario;
+            if (sel !== 'auto') return sel;
+            const testY = YEARS.find(y => (yearToLayers[y]?.all?.length || 0) > 0);
+            if (!testY) return 'wet';
+            for (const s of ['wet', 'normal', 'dry']) if ((yearToLayers[testY][s] || []).length) return s;
+            return 'wet';
+        }
+        function idsForYear(year, yearToLayers) {
+            const scen = activeScenarioKey(yearToLayers);
+            const pool = (yearToLayers[year] || {});
+            return (pool[scen] && pool[scen].length) ? pool[scen] : (pool.all || []);
+        }
+
+        function wireUI(yearToLayers, initial = false) {
+            // scenario selector
+            const scenarioSel = document.getElementById('scenarioSel');
+            const anyScenarioTagged = YEARS.some(y => ['wet', 'normal', 'dry'].some(s => (yearToLayers[y]?.[s] || []).length));
+            scenarioSel.parentElement.style.display = anyScenarioTagged ? '' : 'none';
+            scenarioSel.value = state.scenario;
+            scenarioSel.onchange = () => {
+                state.scenario = scenarioSel.value;
+                YEARS.forEach(y => {
+                    const allIds = (yearToLayers[y]?.all) || [];
+                    allIds.forEach(id => setVisible(id, false));
+                    if (state.years[y]) idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
+                });
+            };
+
+            // year checkboxes
+            YEARS.forEach(y => {
+                const allIds = (yearToLayers[y]?.all) || [];
+                const cb = document.getElementById('y' + y);
+                cb.disabled = !allIds.length;
+                cb.checked = !!state.years[y];
+
+                allIds.forEach(id => setVisible(id, false));
+                if (state.years[y]) idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
+                allIds.forEach(id => { try { map.moveLayer(id); } catch { } });
+
+                cb.onchange = e => {
+                    state.years[y] = e.target.checked;
+                    allIds.forEach(id => setVisible(id, false));
+                    if (e.target.checked) idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
+                };
+            });
+
+            document.getElementById('showAll').onclick = () => {
+                YEARS.forEach(y => {
+                    const allIds = (yearToLayers[y]?.all) || [];
+                    if (!allIds.length) return;
+                    state.years[y] = true;
+                    document.getElementById('y' + y).checked = true;
+                    allIds.forEach(id => setVisible(id, false));
+                    idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
+                });
+            };
+            document.getElementById('hideAll').onclick = () => {
+                YEARS.forEach(y => {
+                    const allIds = (yearToLayers[y]?.all) || [];
+                    state.years[y] = false;
+                    document.getElementById('y' + y).checked = false;
+                    allIds.forEach(id => setVisible(id, false));
+                });
+            };
+
+            if (initial) {
+                YEARS.forEach(y => {
+                    const allIds = (yearToLayers[y]?.all) || [];
+                    allIds.forEach(id => setVisible(id, false));
+                    if (state.years[y]) idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
+                });
+            }
+        }
+
+        function addInteractivity(yearToLayers) {
+            const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '320px' });
+            const anyVisible = () => YEARS.some(y => (yearToLayers[y]?.all || []).some(id => isVisible(id)));
+
+            map.on('click', (e) => {
+                if (!anyVisible()) return;
+                const ids = YEARS.flatMap(y => (yearToLayers[y]?.all || []).filter(id => isVisible(id)));
+                const feats = map.queryRenderedFeatures(e.point, { layers: ids });
+                if (!feats.length) return;
+
+                const f = feats[feats.length - 1];
+                const props = f.properties || {};
+                const year = (f.layer && f.layer.id) ? (f.layer.id.match(/20\d{2}/) || ['—'])[0] : '—';
+                const scenario = (f.layer && f.layer.id) ? ((f.layer.id.toLowerCase().match(/\b(dry|normal|wet)\b/) || [])[1] || '') : '';
+                const scenNice = scenario ? (scenario[0].toUpperCase() + scenario.slice(1)) : '—';
+                const label = toLabel(getHazardValue(props));
+                const idx = props.flood_mag_idx ?? props.hazard_idx;
+                const idxNum = Number(idx);
+                const idxStr = !Number.isNaN(idxNum) ? `<div class="kv"><div>Index</div><div>${idxNum.toFixed(2)}</div></div>` : '';
+
+                popup.setLngLat(e.lngLat).setHTML(`
+          <div class="popup">
+            <div class="h">Predicted Flood Hazard — ${year} (${scenNice})</div>
+            <div class="kv"><div>Class</div><div><span class="${badgeClass(label)}">${label}</span></div></div>
+            ${idxStr}
+          </div>`).addTo(map);
+            });
+
+            YEARS.forEach(y => (yearToLayers[y]?.all || []).forEach(id => {
+                map.on('mouseenter', id, () => { if (isVisible(id)) map.getCanvas().style.cursor = 'pointer'; });
+                map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
+            }));
+        }
+
+        map.on('load', () => {
+            try { map.setProjection('globe'); } catch { }
+            try {
+                if (!map.getLayer('sky')) {
+                    map.addLayer({ id: 'sky', type: 'sky', paint: { 'sky-type': 'atmosphere', 'sky-atmosphere-sun-intensity': 12 } },
+                        map.getStyle().layers[0]?.id);
+                }
+            } catch { }
+
+            const found = findPredictiveLayers();
+            // tiny status line
+            const total = YEARS.reduce((n, y) => n + (found[y]?.all?.length || 0), 0);
+            document.getElementById('status').textContent = total
+                ? `Found ${total} predictive layer(s) tagged 2026–2030.`
+                : 'No matching predictive layers found (layer IDs must include year).';
+
+            wireUI(found, true);
+            addInteractivity(found);
+        });
+    </script>
+</body>
+
+</html>
