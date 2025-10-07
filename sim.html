@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tugbo Flood Hazard — Polygons + Pixels (Rainfall amount only)</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        html,
+        body,
+        #map {
+            height: 100%;
+            margin: 0
+        }
+
+        .panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 2;
+            background: #fff;
+            border: 1px solid #cfd8dc;
+            border-radius: 12px;
+            box-shadow: 0 3px 14px rgba(0, 0, 0, .12);
+            padding: 12px 14px;
+            font: 14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            min-width: 280px
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: center;
+            margin: 8px 0
+        }
+
+        .row input[type="number"] {
+            width: 120px
+        }
+
+        .legend .item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px
+        }
+
+        .sw {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, .28)
+        }
+
+        .toggles {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #cfd8dc
+        }
+
+        .toggles label {
+            display: block;
+            margin-top: 6px
+        }
+
+        .popup {
+            font: 13px/1.35 system-ui
+        }
+
+        .popup td {
+            padding: 2px 6px;
+            border-bottom: 1px solid #eee
+        }
+
+        .credit {
+            position: absolute;
+            right: 12px;
+            bottom: 12px;
+            background: #fff;
+            padding: 6px 8px;
+            border: 1px solid #cfd8dc;
+            border-radius: 8px;
+            font: 12px/1.3 system-ui
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <div class="panel">
+        <div style="font-weight:700">Rainfall amount (mm)</div>
+        <div class="row">
+            <label>Total rainfall (mm)</label>
+            <input id="rain_mm" type="number" min="0" max="500" step="1" value="120">
+        </div>
+        <div class="row" style="grid-template-columns:1fr;">
+            <div id="summary" style="color:#667;font-size:12px">Event total: 120 mm</div>
+        </div>
+
+        <div style="font-weight:700;margin-top:12px">Legend (4-class)</div>
+        <div class="legend">
+            <div class="item"><span class="sw" style="background:hsl(215, 91%, 85%)"></span>Low</div>
+            <div class="item"><span class="sw" style="background:hsl(227, 81%, 76%)"></span>Moderate</div>
+            <div class="item"><span class="sw" style="background:hsl(228, 88%, 64%)"></span>High</div>
+            <div class="item"><span class="sw" style="background:hsl(258, 93%, 48%)"></span>Very High</div>
+        </div>
+
+        <div class="toggles">
+            <label><input type="checkbox" id="toggle-polygons" checked> Polygons</label>
+            <label><input type="checkbox" id="toggle-pixels" checked> Pixels</label>
+            <label><input type="checkbox" id="toggle-satellite" checked> Satellite</label>
+        </div>
+    </div>
+
+    <div class="credit">
+        Rain driver = clamp(total_mm / EVENT_MAX). Drivers from data (SAR, convergence, HAND, slope, distance) stay
+        fixed; only rainfall amount changes.
+    </div>
+
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.js"></script>
+    <script>
+        // ---------- CONFIG ----------
+        mapboxgl.accessToken = 'pk.eyJ1Ijoia3lhaGFuenp6IiwiYSI6ImNtZGR2YmpqMDA4enIya29zY21nY3hxMjQifQ.U3RNv0EJn1yPHwF41JZALA';
+        const STYLE_URL = 'mapbox://styles/kyahanzzz/cmgdd0gv9005f01re5gl09lxu';
+
+        // Layer IDs in your style
+        const POLYGON_LAYER_ID = 'tugbo-flood-magnitude-polygon-5jmg4l';
+        const PIXEL_LAYER_ID = 'tugbo-hazard-pixels-detail-st-5i34my';
+        let SATELLITE_ID = 'mapbox-satellite';
+
+        // Colors & thresholds (Low→Very High)
+        const COLORS = ['hsl(215, 91%, 85%)', 'hsl(227, 81%, 76%)', 'hsl(228, 88%, 64%)', 'hsl(258, 93%, 48%)'];
+        const T1 = 0.25, T2 = 0.50, T3 = 0.75;
+
+        // Normalization caps, weights (same concept as model)
+        const EVENT_MAX = 300;  // mm cap for the rain term
+        const OPACITY_MAX = 300;  // link visibility to total mm
+        const W = { sar: 0.45, rain: 0.25, acc: 0.10, inv_hand: 0.10, inv_slope: 0.05, inv_dist: 0.05 };
+        const BASE_OPACITY = 0.75;
+
+        // ---------- UI ----------
+        const rainMM = document.getElementById('rain_mm');
+        const summary = document.getElementById('summary');
+
+        // ---------- MAP ----------
+        const map = new mapboxgl.Map({ container: 'map', style: STYLE_URL, center: [123.639, 12.349], zoom: 15 });
+        map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
+        map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+        map.addControl(new mapboxgl.ScaleControl({ unit: 'metric' }), 'bottom-right');
+
+        // ---------- Helpers ----------
+        function layerType(id) { const l = map.getLayer(id); return l && l.type; }
+        function colorPropFor(id) {
+            return { fill: 'fill-color', line: 'line-color', circle: 'circle-color', 'fill-extrusion': 'fill-extrusion-color', symbol: 'icon-color' }[layerType(id)] || null;
+        }
+        function opacityPropFor(id) {
+            return { fill: 'fill-opacity', line: 'line-opacity', circle: 'circle-opacity', 'fill-extrusion': 'fill-extrusion-opacity', symbol: 'icon-opacity', raster: 'raster-opacity' }[layerType(id)] || null;
+        }
+        function setOpacity(id, v) {
+            const prop = opacityPropFor(id);
+            if (prop) { try { map.setPaintProperty(id, prop, v); } catch { } }
+            if (layerType(id) === 'symbol') { try { map.setPaintProperty(id, 'text-opacity', v); } catch { } }
+        }
+        function ensureSatelliteBottom() {
+            let sat = SATELLITE_ID;
+            if (!map.getLayer(sat)) {
+                const cand = (map.getStyle().layers || []).find(l => l.type === 'raster' && /satellite/i.test(l.id || ''));
+                if (cand) sat = cand.id;
+                else {
+                    if (!map.getSource('satellite-autogen')) {
+                        map.addSource('satellite-autogen', { type: 'raster', url: 'mapbox://mapbox.satellite', tileSize: 256 });
+                    }
+                    const first = map.getStyle().layers[0].id;
+                    if (!map.getLayer('satellite-autogen')) {
+                        map.addLayer({ id: 'satellite-autogen', type: 'raster', source: 'satellite-autogen', paint: { 'raster-opacity': 1 } }, first);
+                    }
+                    sat = 'satellite-autogen';
+                }
+            }
+            const first = map.getStyle().layers[0].id; try { map.moveLayer(sat, first); } catch { }
+            SATELLITE_ID = sat;
+            return sat;
+        }
+        function whenAnyReady(ids, cb) {
+            function tick() { ids.some(id => !!map.getLayer(id)) ? cb() : requestAnimationFrame(tick); }
+            tick();
+        }
+
+        // ========== Rain driver (duration-free) ==========
+        // r_norm = clamp(total_mm / EVENT_MAX) in [0..1]
+        function rNormExpr(Tmm) {
+            return ['min', 1, ['/', Tmm, EVENT_MAX]];
+        }
+
+        // Polygon color: full index if driver props exist; else rain-only
+        function polygonColorExpr(Tmm) {
+            const hasDrivers = ['any', ['has', 'sar'], ['has', 'acc'], ['has', 'inv_hand'], ['has', 'inv_slope'], ['has', 'inv_dist']];
+            const idxFull = ['+',
+                ['*', ['to-number', ['coalesce', ['get', 'sar'], 0]], W.sar],
+                ['*', rNormExpr(Tmm), W.rain],
+                ['*', ['to-number', ['coalesce', ['get', 'acc'], 0]], W.acc],
+                ['*', ['to-number', ['coalesce', ['get', 'inv_hand'], 0]], W.inv_hand],
+                ['*', ['to-number', ['coalesce', ['get', 'inv_slope'], 0]], W.inv_slope],
+                ['*', ['to-number', ['coalesce', ['get', 'inv_dist'], 0]], W.inv_dist]
+            ];
+            const rainOnly = rNormExpr(Tmm);
+            const colorFrom = expr => ['step', expr, COLORS[0], T1, COLORS[1], T2, COLORS[2], T3, COLORS[3]];
+            return ['case', hasDrivers, colorFrom(idxFull), colorFrom(rainOnly)];
+        }
+
+        // Pixel color: fixed drivers + rainfall term (front-end sim weights you used)
+        function pixelColorExpr(Tmm) {
+            const idx = ['+',
+                ['*', ['to-number', ['coalesce', ['get', 'inv_hand'], 0]], 0.35],
+                ['*', ['to-number', ['coalesce', ['get', 'inv_slope'], 0]], 0.20],
+                ['*', ['to-number', ['coalesce', ['get', 'inv_dist'], 0]], 0.20],
+                ['*', ['to-number', ['coalesce', ['get', 'acc'], 0]], 0.05],
+                ['*', rNormExpr(Tmm), 0.20]
+            ];
+            return ['step', idx, COLORS[0], T1, COLORS[1], T2, COLORS[2], T3, COLORS[3]];
+        }
+
+        // ----- Paint both layers -----
+        function applyPaint() {
+            const T = Math.max(0, Number(rainMM.value)); // total rainfall (mm)
+            summary.textContent = `Event total: ${T.toFixed(0)} mm`;
+
+            // polygons
+            if (map.getLayer(POLYGON_LAYER_ID)) {
+                try {
+                    setOpacity(POLYGON_LAYER_ID, BASE_OPACITY * Math.min(1, T / OPACITY_MAX));
+                    map.setPaintProperty(POLYGON_LAYER_ID, colorPropFor(POLYGON_LAYER_ID) || 'fill-color', polygonColorExpr(T));
+                } catch (e) { }
+            }
+            // pixels
+            if (map.getLayer(PIXEL_LAYER_ID)) {
+                try {
+                    const lt = layerType(PIXEL_LAYER_ID);
+                    const colorProp = { fill: 'fill-color', circle: 'circle-color', line: 'line-color', 'fill-extrusion': 'fill-extrusion-color', symbol: 'icon-color' }[lt] || 'fill-color';
+                    setOpacity(PIXEL_LAYER_ID, 0.85 * Math.min(1, T / OPACITY_MAX));
+                    map.setPaintProperty(PIXEL_LAYER_ID, colorProp, pixelColorExpr(T));
+                } catch (e) { }
+            }
+
+            // toggles
+            const showPolys = document.getElementById('toggle-polygons').checked;
+            if (map.getLayer(POLYGON_LAYER_ID)) map.setLayoutProperty(POLYGON_LAYER_ID, 'visibility', showPolys ? 'visible' : 'none');
+
+            const showPixels = document.getElementById('toggle-pixels').checked;
+            if (map.getLayer(PIXEL_LAYER_ID)) map.setLayoutProperty(PIXEL_LAYER_ID, 'visibility', showPixels ? 'visible' : 'none');
+
+            const showSat = document.getElementById('toggle-satellite').checked;
+            if (map.getLayer(SATELLITE_ID)) map.setLayoutProperty(SATELLITE_ID, 'visibility', showSat ? 'visible' : 'none');
+            if (map.getLayer('satellite-autogen')) map.setLayoutProperty('satellite-autogen', 'visibility', showSat ? 'visible' : 'none');
+        }
+
+        // ----- Init -----
+        map.on('load', () => {
+            const satId = ensureSatelliteBottom();
+
+            map.once('idle', () => {
+                whenAnyReady([POLYGON_LAYER_ID, PIXEL_LAYER_ID], () => {
+                    // z-order: satellite (bottom), polygons, pixels (top)
+                    try { map.moveLayer(POLYGON_LAYER_ID); } catch { }
+                    try { map.moveLayer(PIXEL_LAYER_ID); } catch { }
+                    try { map.moveLayer(satId, map.getStyle().layers[0].id); } catch { }
+
+                    if (map.getLayer(POLYGON_LAYER_ID)) setOpacity(POLYGON_LAYER_ID, BASE_OPACITY);
+                    if (map.getLayer(PIXEL_LAYER_ID)) setOpacity(PIXEL_LAYER_ID, 0.85);
+
+                    // UI wiring
+                    rainMM.addEventListener('input', applyPaint);
+                    document.getElementById('toggle-polygons').addEventListener('change', applyPaint);
+                    document.getElementById('toggle-pixels').addEventListener('change', applyPaint);
+                    document.getElementById('toggle-satellite').addEventListener('change', applyPaint);
+
+                    // initial paint
+                    setTimeout(applyPaint, 200);
+
+                    // popups (pixel preferred)
+                    const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '380px' });
+                    map.on('click', (e) => {
+                        const layers = [];
+                        if (map.getLayer(PIXEL_LAYER_ID) && map.getLayoutProperty(PIXEL_LAYER_ID, 'visibility') !== 'none') layers.push(PIXEL_LAYER_ID);
+                        if (map.getLayer(POLYGON_LAYER_ID) && map.getLayoutProperty(POLYGON_LAYER_ID, 'visibility') !== 'none') layers.push(POLYGON_LAYER_ID);
+                        if (!layers.length) return;
+
+                        const feats = map.queryRenderedFeatures(e.point, { layers });
+                        if (!feats.length) return;
+
+                        const f = feats.find(ft => ft.layer.id === PIXEL_LAYER_ID) || feats[0];
+                        const p = f.properties || {};
+                        const cls = p.magnitude || p.hazard_cls || p.mag_code || '(no value)';
+                        const rainNow = Number(rainMM.value) || 0;
+
+                        popup.setLngLat(e.lngLat).setHTML(
+                            `<div class="popup"><div style="font-weight:700;margin-bottom:6px">${f.layer.id === PIXEL_LAYER_ID ? 'Pixel' : 'Polygon'}</div>
+                <table>
+                  <tr><td>Current rain (mm)</td><td>${rainNow.toFixed(0)}</td></tr>
+                  <tr><td>Class (data)</td><td>${cls}</td></tr>
+                  ${p.sar !== undefined ? `<tr><td>sar</td><td>${Number(p.sar).toFixed(2)}</td></tr>` : ''}
+                  ${p.acc !== undefined ? `<tr><td>acc</td><td>${Number(p.acc).toFixed(2)}</td></tr>` : ''}
+                  ${p.inv_hand !== undefined ? `<tr><td>inv_hand</td><td>${Number(p.inv_hand).toFixed(2)}</td></tr>` : ''}
+                  ${p.inv_slope !== undefined ? `<tr><td>inv_slope</td><td>${Number(p.inv_slope).toFixed(2)}</td></tr>` : ''}
+                  ${p.inv_dist !== undefined ? `<tr><td>inv_dist</td><td>${Number(p.inv_dist).toFixed(2)}</td></tr>` : ''}
+                  ${p.p_mean !== undefined ? `<tr><td>p_mean (data)</td><td>${Number(p.p_mean).toFixed(2)} mm/day</td></tr>` : ''}
+                </table></div>`
+                        ).addTo(map);
+                    });
+
+                    // pointer cursor
+                    [POLYGON_LAYER_ID, POLYGON_LAYER_ID].forEach(id => {
+                        if (map.getLayer(id)) {
+                            map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
+                            map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
+                        }
+                    });
+                    if (map.getLayer(PIXEL_LAYER_ID)) {
+                        map.on('mouseenter', PIXEL_LAYER_ID, () => map.getCanvas().style.cursor = 'pointer');
+                        map.on('mouseleave', PIXEL_LAYER_ID, () => map.getCanvas().style.cursor = '');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
