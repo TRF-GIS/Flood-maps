@@ -1,151 +1,790 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tugbo Flood Hazard</title>
-  <meta name="description" content="Interactive flood hazard map for the Tugbo River AOI (Low, Moderate, High). Built from Google Earth Engine outputs and styled in Mapbox Studio." />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tugbo Flood Hazard</title>
+    <meta name="description"
+        content="Interactive flood hazard map for the Tugbo River AOI (Low, Moderate, High, Very High). Built from Google Earth Engine outputs and styled in Mapbox Studio." />
+    <meta property="og:title" content="Tugbo Flood Hazard" />
+    <meta property="og:description"
+        content="Explore the Tugbo River flood hazard map (Low · Moderate · High · Very High)." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="og-image.jpg" />
 
-  <!-- Social sharing (update og:image if you add a thumbnail) -->
-  <meta property="og:title" content="Tugbo Flood Hazard" />
-  <meta property="og:description" content="Explore the Tugbo River flood hazard map (Low · Moderate · High)." />
-  <meta property="og:type" content="website" />
-  <meta property="og:image" content="og-image.jpg" />
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet" />
 
-  <!-- Optional: Google Font (inter) -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Mapbox GL CSS (for mini-map + predictive viewer) -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.css" rel="stylesheet" />
 
-  <style>
-    :root{
-      --bg-1:#081826; --bg-2:#0e2941; --glass:#0f2137cc; --border:#2a3a4b;
-      --fg:#eaf2f8; --muted:#a9bfd2;
-      --accent:#22a6f2; --accent-2:#17d1ff; --accent-h:#1a8ecf;
-      --card:#0f2137a6; --chip:#122a43; --ok:#62d3c9;
-      --shadow: 0 10px 30px rgba(0,0,0,.25);
-      --radius: 14px;
-    }
-    @media (prefers-color-scheme: light){
-      :root{ --bg-1:#eef5fb; --bg-2:#dfeaf5; --glass:#ffffffcc; --border:#e7edf5; --fg:#0f2235; --muted:#4f6a80; --card:#ffffffd9; --chip:#eef3f9; --shadow: 0 10px 30px rgba(3,33,62,.12) }
-    }
+    <style>
+        :root {
+            --bg-1: #081826;
+            --bg-2: #0e2941;
+            --glass: #0f2137cc;
+            --border: #2a3a4b;
+            --fg: #eaf2f8;
+            --muted: #a9bfd2;
+            --mid: #cfe6f7;
+            --accent: #22a6f2;
+            --accent-2: #17d1ff;
+            --card: #0f2137a6;
+            --chip: #122a43;
+            --low: #70e0b5;
+            --mod: #ffb56b;
+            --high: #ff7a7a;
+            --shadow: 0 10px 30px rgba(0, 0, 0, .25);
+            --radius: 16px;
+            --radius-lg: 24px
+        }
 
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0}
-    body{
-      font:16px/1.55 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      color:var(--fg);
-      background:
-        radial-gradient(1200px 900px at 10% -10%, #11385e 0%, transparent 60%),
-        radial-gradient(1000px 700px at 90% 20%, #0c3850 0%, transparent 55%),
-        linear-gradient(160deg, var(--bg-1), var(--bg-2));
-      display:flex; align-items:center; justify-content:center; padding:24px;
-    }
+        @media (prefers-color-scheme:light) {
+            :root {
+                --bg-1: #eef5fb;
+                --bg-2: #dfeaf5;
+                --glass: #ffffffcc;
+                --border: #e7edf5;
+                --fg: #0f2235;
+                --muted: #4f6a80;
+                --card: #ffffffd9;
+                --chip: #eef3f9;
+                --shadow: 0 10px 30px rgba(3, 33, 62, .12)
+            }
+        }
 
-    .wrap{ width:min(1100px, 96vw); }
+        * {
+            box-sizing: border-box
+        }
 
-    /* Top nav */
-    .nav{
-      display:flex; align-items:center; justify-content:space-between;
-      margin-bottom:18px;
-    }
-    .brand{ display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.2px; font-size:18px }
-    .brand .logo{
-      width:36px; height:36px; border-radius:10px;
-      background:linear-gradient(145deg, var(--accent), var(--accent-2));
-      box-shadow:0 6px 16px rgba(34,166,242,.35);
-    }
-    .nav a{
-      color:var(--fg); text-decoration:none; font-weight:600; opacity:.85;
-    }
-    .nav a:hover{ opacity:1; }
+        html,
+        body {
+            height: 100%;
+            margin: 0
+        }
 
-    /* Hero card */
-    .hero{
-      position:relative; overflow:hidden; border-radius:24px;
-      background:var(--glass); border:1px solid var(--border); box-shadow:var(--shadow);
-      padding:38px clamp(20px, 4vw, 44px);
-      display:grid; grid-template-columns:1.1fr .9fr; gap:28px;
-    }
-    @media (max-width: 900px){ .hero{ grid-template-columns:1fr; } }
+        html {
+            scroll-behavior: smooth
+        }
 
-    .hero h1{ font-size: clamp(30px, 5vw, 56px); line-height:1.05; margin:0 0 10px }
-    .hero p{ color:var(--muted); margin:8px 0 18px }
+        body {
+            font: 16px/1.55 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            color: var(--fg);
+            background:
+                radial-gradient(1200px 900px at 10% -10%, #11385e 0%, transparent 60%),
+                radial-gradient(1000px 700px at 90% 20%, #0c3850 0%, transparent 55%),
+                linear-gradient(160deg, var(--bg-1), var(--bg-2))
+        }
 
-    .cta{ display:flex; flex-wrap:wrap; gap:12px; margin-top:8px }
-    .btn{
-      appearance:none; border:0; cursor:pointer; text-decoration:none; font-weight:700; letter-spacing:.2px;
-      color:#fff; background:linear-gradient(135deg, var(--accent), var(--accent-2));
-      padding:12px 18px; border-radius:12px; box-shadow:0 8px 20px rgba(34,166,242,.35); transition:.2s transform ease, .2s box-shadow ease;
-    }
-    .btn:hover{ transform: translateY(-2px); box-shadow:0 12px 26px rgba(34,166,242,.45) }
-    .btn.outline{
-      background:transparent; color:var(--fg); border:1px solid var(--border); box-shadow:none;
-    }
-    .btn.outline:hover{ border-color:#3a5974; background:#0e2237aa }
+        .wrap {
+            width: min(1200px, 96vw);
+            margin-inline: auto;
+            padding: 20px 0 40px
+        }
 
-    /* Right-side preview card */
-    .card{
-      background:var(--card); border:1px solid var(--border); border-radius:20px; padding:16px;
-    }
-    .mini{
-      height:220px; border-radius:12px; background:
-        radial-gradient(120px 100px at 20% 40%, #b3e5fc 0%, transparent 60%),
-        radial-gradient(140px 120px at 70% 60%, #4fc3f7 0%, transparent 65%),
-        radial-gradient(160px 140px at 50% 30%, #0288d1 0%, transparent 70%),
-        linear-gradient(180deg, #0b2234, #0a1b2a);
-      border:1px solid var(--border);
-    }
-    .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px }
-    .chip{ background:var(--chip); color:var(--muted); border:1px solid var(--border); padding:6px 10px; border-radius:999px; font-size:13px }
+        .section {
+            margin-top: 30px
+        }
 
-    /* Info bar */
-    .infobar{
-      margin-top:18px; display:flex; flex-wrap:wrap; gap:10px;
-    }
-    .info{
-      background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 12px;
-      font-size:14px; color:var(--muted);
-    }
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            backdrop-filter: saturate(130%) blur(8px);
+            background: linear-gradient(180deg, var(--glass), transparent);
+            border-bottom: 1px solid var(--border)
+        }
 
-    /* Footer */
-    footer{ text-align:center; margin-top:16px; color:var(--muted); font-size:12px }
-  </style>
+        .topbar .inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 10px min(2vw, 16px)
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 800;
+            letter-spacing: .2px;
+            font-size: 18px
+        }
+
+        .brand .logo {
+            inline-size: 36px;
+            block-size: 36px;
+            border-radius: 10px;
+            background: conic-gradient(from 200deg at 70% 30%, var(--accent), var(--accent-2));
+            box-shadow: 0 6px 16px rgba(34, 166, 242, .35)
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap
+        }
+
+        .nav a {
+            color: var(--fg);
+            text-decoration: none;
+            font-weight: 600;
+            opacity: .9;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid transparent
+        }
+
+        .nav a:hover {
+            opacity: 1;
+            background: var(--card);
+            border-color: var(--border)
+        }
+
+        .hero {
+            position: relative;
+            overflow: hidden;
+            border-radius: var(--radius-lg);
+            background: var(--glass);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            padding: 38px clamp(18px, 4vw, 44px);
+            display: grid;
+            grid-template-columns: 1.15fr .85fr;
+            gap: 28px;
+            align-items: stretch
+        }
+
+        @media (max-width:980px) {
+            .hero {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .hero h1 {
+            font-size: clamp(30px, 5vw, 56px);
+            line-height: 1.05;
+            margin: 0 0 12px
+        }
+
+        .hero p {
+            color: var(--muted);
+            margin: 8px 0 18px
+        }
+
+        .cta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 14px
+        }
+
+        .btn {
+            appearance: none;
+            border: 0;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 700;
+            letter-spacing: .2px;
+            color: #04131f;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            padding: 12px 18px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(34, 166, 242, .35);
+            transition: .2s transform ease, .2s box-shadow ease
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(34, 166, 242, .45)
+        }
+
+        .btn.alt {
+            background: transparent;
+            color: var(--fg);
+            border: 1px solid var(--border);
+            box-shadow: none
+        }
+
+        .btn.alt:hover {
+            border-color: #3a5974;
+            background: #0e2237aa
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 16px;
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            gap: 12px
+        }
+
+        .minimap {
+            position: relative;
+            block-size: 260px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: #0b1e2e
+        }
+
+        #miniMap {
+            height: 100%;
+            width: 100%
+        }
+
+        .legend {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center
+        }
+
+        .lg-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            background: var(--chip);
+            color: var(--muted);
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-weight: 700;
+            cursor: pointer
+        }
+
+        .lg-btn:focus-visible {
+            outline: 2px solid var(--accent)
+        }
+
+        .lg-dot {
+            inline-size: 12px;
+            block-size: 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border)
+        }
+
+        .lg-low {
+            background: #70e0b5
+        }
+
+        .lg-mod {
+            background: #ffb56b
+        }
+
+        .lg-high {
+            background: #ff7a7a
+        }
+
+        .lg-vhigh {
+            background: #3d24ff
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px
+        }
+
+        .chip {
+            background: var(--chip);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 13px
+        }
+
+        .strip {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(4, 1fr);
+            margin-top: 14px
+        }
+
+        @media (max-width:980px) {
+            .strip {
+                grid-template-columns: 1fr 1fr
+            }
+        }
+
+        .stat {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 14px
+        }
+
+        .stat small {
+            color: var(--muted)
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 22px;
+            margin-top: 2px
+        }
+
+        /* —— embedded predictive map —— */
+        .mapwrap {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            background: #0a1d2c
+        }
+
+        #predMap {
+            height: 420px;
+            width: 100%
+        }
+
+        .pred-panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 2;
+            background: var(--glass);
+            backdrop-filter: saturate(130%) blur(8px);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 14px;
+            width: 260px;
+            color: var(--fg)
+        }
+
+        .pred-panel h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            font-weight: 800
+        }
+
+        .pred-panel .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0
+        }
+
+        .pred-panel input[type="checkbox"] {
+            accent-color: #22a6f2;
+            width: 16px;
+            height: 16px
+        }
+
+        .pred-panel .legend .sw {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, .24)
+        }
+
+        .pred-panel .divider {
+            margin: 8px 0;
+            border: 0;
+            border-top: 1px dashed var(--border)
+        }
+
+        .pred-panel select {
+            width: 100%
+        }
+
+        .btns {
+            display: flex;
+            gap: 8px;
+            margin: 6px 0 2px
+        }
+
+        .btns button {
+            background: #22a6f2;
+            color: #021420;
+            border: 0;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-weight: 800;
+            cursor: pointer
+        }
+
+        .btns button.secondary {
+            background: transparent;
+            color: var(--fg);
+            border: 1px solid var(--border)
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 999px;
+            font-weight: 700
+        }
+
+        .b-low {
+            background: #c9d9ff
+        }
+
+        .b-mod {
+            background: #9fb4ff
+        }
+
+        .b-high {
+            background: #5d72ff;
+            color: #fff
+        }
+
+        .b-vhigh {
+            background: #3d24ff;
+            color: #fff
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 22px;
+            color: var(--muted);
+            font-size: 12px
+        }
+    </style>
 </head>
+
 <body>
-  <div class="wrap" role="main">
-    <div class="nav" aria-label="Top">
-      <div class="brand"><span class="logo" aria-hidden="true"></span> Tugbo Flood Hazard</div>
-      <a href="map.html">Open Map</a>
+    <!-- Topbar -->
+    <div class="topbar" role="navigation" aria-label="Top navigation">
+        <div class="wrap inner">
+            <div class="brand"><span class="logo" aria-hidden="true"></span> Tugbo Flood Hazard</div>
+            <nav class="nav">
+                <a href="#about">About</a>
+                <a href="#read">How to read</a>
+                <a href="#sources">Data</a>
+                <a href="#predictive">Predictive</a>
+                <a href="historical.html">Historical</a> <!-- NEW nav link -->
+                <a href="map.html">Open Map</a>
+                <a href="map-new.html">Open New Map</a>
+            </nav>
+        </div>
     </div>
 
-    <section class="hero" aria-label="Intro">
-      <div>
-        <h1>Explore Flood Hazard for the Tugbo River AOI</h1>
-        <p>Interactive hazard classes (<strong>Low</strong> · <strong>Moderate</strong> · <strong>High</strong>) derived from NASADEM terrain, CHIRPS rainfall, and topographic proxies in Google Earth Engine; styled in Mapbox Studio.</p>
-        <div class="cta">
-          <a class="btn" href="map.html">Open Map</a>
-          <a class="btn outline" href="https://studio.mapbox.com/styles/kyahanzzz/cmfjf7zxm005001sb5h4e21av/" target="_blank" rel="noopener">View in Mapbox Studio</a>
-        </div>
+    <div class="wrap" role="main">
+        <!-- Hero -->
+        <section class="hero section" aria-label="Intro">
+            <div>
+                <h1>Explore Flood Hazard for the Tugbo River AOI</h1>
+                <p>Interactive hazard classes (<strong>Low</strong> · <strong>Moderate</strong> · <strong>High</strong>
+                    · <strong>Very High</strong>)
+                    derived from NASADEM terrain, Sentinel-1 (SAR), CHIRPS rainfall, and topographic proxies in Google
+                    Earth Engine; styled in Mapbox Studio.</p>
 
-        <div class="infobar" aria-label="Quick facts">
-          <div class="info">Center: <strong>123.639, 12.349</strong></div>
-          <div class="info">Default zoom: <strong>15</strong></div>
-          <div class="info">Symbology: <strong>Low / Moderate / High</strong></div>
-        </div>
-      </div>
+                <div class="cta">
+                    <a class="btn" href="map.html" aria-label="Open interactive map">Open Map</a>
+                    <a class="btn" href="rain-sim.html" aria-label="Open rainfall simulation map">Rain Simulation</a>
+                    <a class="btn" href="#predictive" aria-label="Jump to predictive models">Predictive (2026–2030)</a>
+                    <a class="btn" href="historical.html" aria-label="Open historical maps">Historical (2021–2025)</a>
+                    <!-- NEW button -->
+                    <a class="btn alt" href="https://studio.mapbox.com/styles/kyahanzzz/cmfjf7zxm005001sb5h4e21av/"
+                        target="_blank" rel="noopener">View in Mapbox Studio</a>
+                </div>
 
-      <aside class="card" aria-label="Preview">
-        <div class="mini" aria-hidden="true" title="Stylized preview of hazard classes"></div>
-        <div class="chips">
-          <span class="chip">NASADEM DEM</span>
-          <span class="chip">CHIRPS Rainfall</span>
-          <span class="chip">HAND / Slope / Distance</span>
-          <span class="chip">Vector polygons</span>
-        </div>
-      </aside>
-    </section>
+                <div class="strip" aria-label="Quick stats">
+                    <div class="stat"><small>Center</small><strong>123.639,<br />12.349</strong></div>
+                    <div class="stat"><small>Default zoom</small><strong>15</strong></div>
+                    <div class="stat"><small>AOI size</small><strong>~1.1 km²</strong></div>
+                    <div class="stat"><small>Last update</small><strong id="lastUpdated">—</strong></div>
+                </div>
+            </div>
 
-    <footer>© <span id="y"></span> Tugbo Flood Hazard • Built with Mapbox GL JS</footer>
-  </div>
-  <script>document.getElementById('y').textContent = new Date().getFullYear()</script>
+            <!-- Right card with live mini-map + legend buttons -->
+            <aside class="card" aria-label="Preview">
+                <div class="minimap">
+                    <div id="miniMap" aria-hidden="false"></div>
+                </div>
+
+                <div class="legend" aria-label="Legend">
+                    <button type="button" class="lg-btn"><span class="lg-dot lg-low"></span>Low</button>
+                    <button type="button" class="lg-btn"><span class="lg-dot lg-mod"></span>Moderate</button>
+                    <button type="button" class="lg-btn"><span class="lg-dot lg-high"></span>High</button>
+                    <button type="button" class="lg-btn"><span class="lg-dot lg-vhigh"></span>Very High</button>
+                </div>
+
+                <div class="chips">
+                    <span class="chip">Sentinel-1 (SAR)</span>
+                    <span class="chip">NASADEM DEM</span>
+                    <span class="chip">CHIRPS Rainfall</span>
+                    <span class="chip">HAND / Slope / Distance</span>
+                    <span class="chip">Vector polygons</span>
+                </div>
+            </aside>
+        </section>
+
+        <!-- Embedded predictive viewer -->
+        <section id="predictive" class="section" aria-label="Predictive models (2026–2030)">
+            <h2 style="margin:0 0 10px">Predictive Hazard (2026–2030)</h2>
+            <p style="margin:6px 0 14px;color:var(--muted)">
+                Quick preview of predicted flood hazard polygons from Earth Engine. Toggle years; 2028 is on by default.
+            </p>
+
+            <div class="mapwrap">
+                <div id="predMap" aria-label="Predictive map"></div>
+
+                <div class="pred-panel" id="predPanel">
+                    <h3>Predicted Flood Hazard (S1)</h3>
+
+                    <div class="legend">
+                        <div class="row"><span class="sw" style="background:#c9d9ff"></span><span>Low</span></div>
+                        <div class="row"><span class="sw" style="background:#9fb4ff"></span><span>Moderate</span></div>
+                        <div class="row"><span class="sw" style="background:#5d72ff"></span><span>High</span></div>
+                        <div class="row"><span class="sw" style="background:#3d24ff"></span><span>Very High</span></div>
+                    </div>
+
+                    <hr class="divider" />
+
+                    <div class="row">
+                        <label for="scenarioSel" style="width:80px">Scenario</label>
+                        <select id="scenarioSel">
+                            <option value="auto" selected>Auto-detect</option>
+                            <option value="wet">Wet</option>
+                            <option value="normal">Normal</option>
+                            <option value="dry">Dry</option>
+                        </select>
+                    </div>
+
+                    <div class="btns">
+                        <button id="showAll">Show all</button>
+                        <button id="hideAll" class="secondary">Hide all</button>
+                    </div>
+
+                    <!-- Year toggles -->
+                    <div class="row"><input type="checkbox" id="y2026"><label for="y2026">2026</label></div>
+                    <div class="row"><input type="checkbox" id="y2027"><label for="y2027">2027</label></div>
+                    <div class="row"><input type="checkbox" id="y2028"><label for="y2028">2028</label></div>
+                    <div class="row"><input type="checkbox" id="y2029"><label for="y2029">2029</label></div>
+                    <div class="row"><input type="checkbox" id="y2030"><label for="y2030">2030</label></div>
+
+                    <div class="row" style="color:var(--muted);font-size:12px" id="predStatus">Looking for predictive
+                        layers…</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Placeholder sections -->
+        <section id="about" class="section"></section>
+        <section id="read" class="section"></section>
+        <section id="sources" class="section"></section>
+
+        <footer>© <span id="y"></span> Tugbo Flood Hazard • Built with Mapbox GL JS •
+            <a href="map.html" style="color:inherit">Open Map</a>
+        </footer>
+    </div>
+
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.js"></script>
+
+    <script>
+        // Footer date + "last updated"
+        document.getElementById('y').textContent = new Date().getFullYear();
+        const d = new Date(), pad = n => String(n).padStart(2, '0');
+        document.getElementById('lastUpdated').textContent = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+        // Mapbox Token
+        mapboxgl.accessToken = 'pk.eyJ1Ijoia3lhaGFuenp6IiwiYSI6ImNtZGR2YmpqMDA4enIya29zY21nY3hxMjQifQ.U3RNv0EJn1yPHwF41JZALA';
+
+        // ===== HERO MINI-MAP (uses current style) =====
+        const HERO_STYLE_URL = 'mapbox://styles/kyahanzzz/cmgglgun3009x01ri1tf89vud';
+        const mini = new mapboxgl.Map({
+            container: 'miniMap',
+            style: HERO_STYLE_URL,
+            center: [123.639, 12.349],
+            zoom: 17.2,
+            pitch: 0,
+            bearing: 0,
+            interactive: true
+        });
+        mini.addControl(new mapboxgl.NavigationControl({ visualizePitch: false, showCompass: false }), 'top-right');
+
+        // ===== PREDICTIVE VIEWER (2026–2030) =====
+        (function () {
+            const STYLE_URL = 'mapbox://styles/kyahanzzz/cmgglgun3009x01ri1tf89vud';
+            const YEARS = [2026, 2027, 2028, 2029, 2030];
+            const SCENARIOS = ['dry', 'normal', 'wet'];
+            const TYPE_OK = new Set(['fill', 'line']);
+
+            const state = { scenario: 'auto', years: Object.fromEntries(YEARS.map(y => [y, false])) };
+            state.years[2028] = true;
+
+            const predMapObj = new mapboxgl.Map({
+                container: 'predMap',
+                style: STYLE_URL,
+                center: [123.639, 12.349],
+                zoom: 15
+            });
+            predMapObj.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
+            predMapObj.addControl(new mapboxgl.ScaleControl({ unit: 'metric' }), 'bottom-right');
+
+            const setVisible = (id, show) => { try { predMapObj.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none'); } catch { } };
+            const isVisible = id => { try { return predMapObj.getLayoutProperty(id, 'visibility') !== 'none'; } catch { return false; } };
+
+            const CLASS_TEXT = ['(no value)', 'Low', 'Moderate', 'High', 'Very High'];
+            const toLabel = v => {
+                if (v == null || v === '') return '(no value)';
+                const n = Number(v); if (!Number.isNaN(n)) return CLASS_TEXT[n] || String(v);
+                const s = String(v).toLowerCase();
+                if (s.includes('very')) return 'Very High';
+                if (s.includes('high')) return 'High';
+                if (s.includes('mod')) return 'Moderate';
+                if (s.includes('low')) return 'Low';
+                return String(v);
+            };
+            const getHazardValue = props => {
+                for (const k of ['magnitude', 'mag_code', 'hazard_cls', 'class', 'rank', 'level']) if (props[k] !== undefined) return props[k];
+                return undefined;
+            };
+
+            const parseMetaFromId = id => {
+                if (!id) return {};
+                const y = (id.match(/20(2[6-9]|30)/) || [])[0];
+                const s = ((id.toLowerCase().match(/\b(dry|normal|wet)\b/) || [])[1]) || undefined;
+                return { year: y ? Number(y) : undefined, scenario: s };
+            };
+
+            function findPredictiveLayers() {
+                const layers = predMapObj.getStyle()?.layers || [];
+                const found = {}; YEARS.forEach(y => { found[y] = { all: [], dry: [], normal: [], wet: [] }; });
+
+                const candidates = layers.filter(l => TYPE_OK.has(l.type) && /20(2[6-9]|30)/.test(l.id))
+                    .sort((a, b) => (/fill/i.test(b.id) ? 1 : 0) - (/fill/i.test(a.id) ? 1 : 0));
+                for (const l of candidates) {
+                    const { year, scenario } = parseMetaFromId(l.id);
+                    if (!year || !YEARS.includes(year)) continue;
+                    found[year].all.push(l.id);
+                    if (scenario && SCENARIOS.includes(scenario)) found[year][scenario].push(l.id);
+                }
+                return found;
+            }
+
+            function activeScenarioKey(yearToLayers) {
+                const sel = state.scenario;
+                if (sel !== 'auto') return sel;
+                const testY = YEARS.find(y => (yearToLayers[y]?.all?.length || 0) > 0);
+                if (!testY) return 'wet';
+                for (const s of ['wet', 'normal', 'dry']) if ((yearToLayers[testY][s] || []).length) return s;
+                return 'wet';
+            }
+            function idsForYear(year, y2l) {
+                const scen = activeScenarioKey(y2l);
+                const pool = y2l[year] || {};
+                return (pool[scen] && pool[scen].length) ? pool[scen] : (pool.all || []);
+            }
+
+            function wireUI(y2l, initial = false) {
+                // scenario dropdown
+                const scenarioSel = document.getElementById('scenarioSel');
+                const anyScenarioTagged = YEARS.some(y => ['wet', 'normal', 'dry'].some(s => (y2l[y]?.[s] || []).length));
+                scenarioSel.parentElement.style.display = anyScenarioTagged ? '' : 'none';
+                scenarioSel.value = state.scenario;
+                scenarioSel.onchange = () => {
+                    state.scenario = scenarioSel.value;
+                    YEARS.forEach(y => {
+                        const allIds = (y2l[y]?.all) || [];
+                        allIds.forEach(id => setVisible(id, false));
+                        if (state.years[y]) idsForYear(y, y2l).forEach(id => setVisible(id, true));
+                    });
+                };
+
+                // year toggles
+                YEARS.forEach(y => {
+                    const allIds = (y2l[y]?.all) || [];
+                    const cb = document.getElementById('y' + y);
+                    cb.disabled = !allIds.length;
+                    cb.checked = !!state.years[y];
+
+                    allIds.forEach(id => setVisible(id, false));
+                    if (state.years[y]) idsForYear(y, y2l).forEach(id => setVisible(id, true));
+                    allIds.forEach(id => { try { predMapObj.moveLayer(id); } catch { } });
+
+                    cb.onchange = e => {
+                        state.years[y] = e.target.checked;
+                        allIds.forEach(id => setVisible(id, false));
+                        if (e.target.checked) idsForYear(y, y2l).forEach(id => setVisible(id, true));
+                    };
+                });
+
+                // show/hide all
+                document.getElementById('showAll').onclick = () => {
+                    YEARS.forEach(y => {
+                        const allIds = (y2l[y]?.all) || [];
+                        if (!allIds.length) return;
+                        state.years[y] = true;
+                        document.getElementById('y' + y).checked = true;
+                        allIds.forEach(id => setVisible(id, false));
+                        idsForYear(y, y2l).forEach(id => setVisible(id, true));
+                    });
+                };
+                document.getElementById('hideAll').onclick = () => {
+                    YEARS.forEach(y => {
+                        const allIds = (y2l[y]?.all) || [];
+                        state.years[y] = false;
+                        document.getElementById('y' + y).checked = false;
+                        allIds.forEach(id => setVisible(id, false));
+                    });
+                };
+
+                if (initial) {
+                    YEARS.forEach(y => {
+                        const allIds = (y2l[y]?.all) || [];
+                        allIds.forEach(id => setVisible(id, false));
+                        if (state.years[y]) idsForYear(y, y2l).forEach(id => setVisible(id, true));
+                    });
+                }
+
+                // tiny status
+                const total = YEARS.reduce((n, yy) => n + (y2l[yy]?.all?.length || 0), 0);
+                document.getElementById('predStatus').textContent = total
+                    ? `Found ${total} predictive layer(s) tagged 2026–2030.`
+                    : 'No predictive layers found (layer IDs must include the year).';
+            }
+
+            function addInteractivity(y2l) {
+                const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '320px' });
+                const anyVisible = () => YEARS.some(y => (y2l[y]?.all || []).some(id => isVisible(id)));
+
+                predMapObj.on('click', (e) => {
+                    if (!anyVisible()) return;
+                    const ids = YEARS.flatMap(y => (y2l[y]?.all || []).filter(id => isVisible(id)));
+                    const feats = predMapObj.queryRenderedFeatures(e.point, { layers: ids });
+                    if (!feats.length) return;
+
+                    const f = feats[feats.length - 1];
+                    const props = f.properties || {};
+                    const year = (f.layer && f.layer.id) ? (f.layer.id.match(/20\d{2}/) || ['—'])[0] : '—';
+                    const scenario = (f.layer && f.layer.id) ? ((f.layer.id.toLowerCase().match(/\b(dry|normal|wet)\b/) || [])[1] || '') : '';
+                    const scenNice = scenario ? (scenario[0].toUpperCase() + scenario.slice(1)) : '—';
+                    const label = toLabel(getHazardValue(props));
+                    const idx = props.flood_mag_idx ?? props.hazard_idx;
+                    const idxNum = Number(idx);
+                    const idxStr = !Number.isNaN(idxNum) ? `<div class="kv"><div>Index</div><div>${idxNum.toFixed(2)}</div></div>` : '';
+
+                    popup.setLngLat(e.lngLat).setHTML(`
+            <div class="popup">
+              <div class="h">Predicted Flood Hazard — ${year} (${scenNice})</div>
+              <div class="kv"><div>Class</div><div><span class="${'badge ' + (label.toLowerCase().includes('very') ? 'b-vhigh' : label.toLowerCase().includes('high') ? 'b-high' : label.toLowerCase().includes('mod') ? 'b-mod' : 'b-low')}">${label}</span></div></div>
+              ${idxStr}
+            </div>`).addTo(predMapObj);
+                });
+            }
+
+            predMapObj.on('load', () => {
+                try { predMapObj.setProjection('globe'); } catch { }
+                const found = findPredictiveLayers();
+                wireUI(found, true);
+                addInteractivity(found);
+            });
+        })();
+    </script>
 </body>
+
 </html>
