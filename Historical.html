@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Tugbo — Year Layer Toggles (Interactive)</title>
+    <title>Tugbo — Year & Opacity Sliders (with Year Dots)</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.css" rel="stylesheet" />
     <style>
         html,
@@ -25,7 +25,7 @@
             border-radius: 14px;
             box-shadow: 0 6px 22px rgba(0, 0, 0, .18);
             padding: 12px 14px;
-            width: 250px;
+            width: 340px;
             font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif;
         }
 
@@ -54,53 +54,79 @@
         }
 
         .divider {
-            margin: 8px 0;
+            margin: 10px 0;
             border: 0;
             border-top: 1px dashed #cfd8dc
         }
 
-        .row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin: 6px 0
+        .slider-group {
+            margin: 8px 0 2px
         }
 
-        .row label {
-            cursor: pointer
+        .slider-label {
+            font-weight: 700;
+            margin: 0 0 6px
+        }
+
+        .slider-row {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .slider-row input[type=range] {
+            width: 100%
+        }
+
+        /* Year dots under the slider */
+        .year-dots {
+            position: relative;
+            height: 18px;
+            margin-top: 6px;
+        }
+
+        .year-dot {
+            position: absolute;
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #cfd8dc;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, .15);
+            transform: translateX(-50%);
+            cursor: pointer;
+        }
+
+        .year-dot:hover {
+            box-shadow: 0 0 0 2px rgba(30, 136, 229, .25)
+        }
+
+        .year-dot.active {
+            background: #1e88e5
+        }
+
+        .year-dot:focus {
+            outline: 2px solid #1e88e5;
+            outline-offset: 2px
+        }
+
+        .year-dot-label {
+            position: absolute;
+            top: 16px;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #607d8b;
+            user-select: none;
+            pointer-events: none;
         }
 
         .note {
             font-size: 12px;
             color: #607d8b;
-            margin-top: 6px
-        }
-
-        input[type="checkbox"] {
-            accent-color: #1e88e5;
-            width: 16px;
-            height: 16px
-        }
-
-        .buttons {
-            display: flex;
-            gap: 8px;
-            margin: 6px 0 2px
-        }
-
-        .buttons button {
-            background: #1e88e5;
-            color: #fff;
-            border: 0;
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-weight: 700;
-            cursor: pointer
-        }
-
-        .buttons button.secondary {
-            background: #eceff1;
-            color: #263238
+            margin-top: 8px;
+            white-space: pre-line
         }
 
         .popup {
@@ -125,21 +151,24 @@
             font-weight: 700
         }
 
+        /* Warm palette (yellow→red) */
         .b-low {
-            background: #c9d9ff
+            background: hsl(51, 98%, 49%);
+            color: #222
         }
 
         .b-mod {
-            background: #9fb4ff
+            background: hsl(39, 88%, 54%);
+            color: #222
         }
 
         .b-high {
-            background: #5d72ff;
+            background: hsl(23, 93%, 52%);
             color: #fff
         }
 
         .b-vhigh {
-            background: #3d24ff;
+            background: hsl(8, 92%, 48%);
             color: #fff
         }
     </style>
@@ -148,40 +177,51 @@
 <body>
     <div id="map"></div>
 
-    <!-- Control panel -->
-    <div class="panel" id="panel">
+    <div class="panel">
         <h3>Flood Hazard (S1)</h3>
 
         <div class="legend">
-            <div class="row"><span class="sw" style="background:#c9d9ff"></span><span>Low</span></div>
-            <div class="row"><span class="sw" style="background:#9fb4ff"></span><span>Moderate</span></div>
-            <div class="row"><span class="sw" style="background:#5d72ff"></span><span>High</span></div>
-            <div class="row"><span class="sw" style="background:#3d24ff"></span><span>Very High</span></div>
+            <div class="row"><span class="sw" style="background:hsl(51,98%,49%)"></span><span>Low</span></div>
+            <div class="row"><span class="sw" style="background:hsl(39,88%,54%)"></span><span>Moderate</span></div>
+            <div class="row"><span class="sw" style="background:hsl(23,93%,52%)"></span><span>High</span></div>
+            <div class="row"><span class="sw" style="background:hsl(8,92%,48%)"></span><span>Very High</span></div>
         </div>
 
         <hr class="divider" />
 
-        <div class="buttons">
-            <button id="showAll">Show all</button>
-            <button id="hideAll" class="secondary">Hide all</button>
+        <!-- Year slider -->
+        <div class="slider-group">
+            <div class="slider-label">Flood Magnitude (annual)</div>
+            <div class="row" style="margin:0 0 6px">Year: <span id="yearLabel">—</span></div>
+            <div class="slider-row">
+                <input id="year" type="range" min="2021" max="2025" step="1" value="2025" />
+                <span id="yearVal">2025</span>
+            </div>
+            <!-- Dots get generated here -->
+            <div class="year-dots" id="yearDots"></div>
         </div>
 
-        <!-- Year toggles (OFF initially) -->
-        <div class="row"><input type="checkbox" id="y2021"><label for="y2021">2021</label></div>
-        <div class="row"><input type="checkbox" id="y2022"><label for="y2022">2022</label></div>
-        <div class="row"><input type="checkbox" id="y2023"><label for="y2023">2023</label></div>
-        <div class="row"><input type="checkbox" id="y2024"><label for="y2024">2024</label></div>
-        <div class="row"><input type="checkbox" id="y2025"><label for="y2025">2025</label></div>
+        <hr class="divider" />
+
+        <!-- Opacity slider -->
+        <div class="slider-group">
+            <div class="slider-label">Opacity</div>
+            <div class="slider-row">
+                <input id="op" type="range" min="10" max="100" value="85" />
+                <span id="opv">85%</span>
+            </div>
+        </div>
 
         <div class="note" id="status">Looking for layers…</div>
     </div>
 
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.js"></script>
     <script>
-        // ========= Setup =========
         mapboxgl.accessToken = 'pk.eyJ1Ijoia3lhaGFuenp6IiwiYSI6ImNtZGR2YmpqMDA4enIya29zY21nY3hxMjQifQ.U3RNv0EJn1yPHwF41JZALA';
         const STYLE_URL = 'mapbox://styles/kyahanzzz/cmgg9f4h500ij01s69cewg1dd';
         const YEARS = [2021, 2022, 2023, 2024, 2025];
+        let currentOpacity = 0.85;
+        let selectedYear = 2025;
 
         const map = new mapboxgl.Map({
             container: 'map',
@@ -192,149 +232,165 @@
         map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
         map.addControl(new mapboxgl.ScaleControl({ unit: 'metric' }), 'bottom-right');
 
-        // ========= Helpers =========
-        const setVisible = (id, show) => { try { map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none'); } catch { } };
-        const isVisible = id => { try { return map.getLayoutProperty(id, 'visibility') !== 'none'; } catch { return false; } };
+        // UI els
+        const status = document.getElementById('status');
+        const yearSlider = document.getElementById('year');
+        const yearVal = document.getElementById('yearVal');
+        const yearLabel = document.getElementById('yearLabel');
+        const yearDots = document.getElementById('yearDots');
+        const opSlider = document.getElementById('op');
+        const opVal = document.getElementById('opv');
 
-        function findYearLayers() {
-            const styleLayers = map.getStyle()?.layers || [];
-            const found = {};
-            YEARS.forEach(y => {
-                const re = new RegExp(String(y));                    // layer id must include the year
-                found[y] = styleLayers.filter(l => re.test(l.id)).map(l => l.id);
-            });
-            return found;
+        // Helpers
+        function opacityPropForType(type) {
+            return {
+                'fill': 'fill-opacity', 'line': 'line-opacity', 'circle': 'circle-opacity',
+                'symbol': 'icon-opacity', 'raster': 'raster-opacity', 'heatmap': 'heatmap-opacity',
+                'fill-extrusion': 'fill-extrusion-opacity', 'background': 'background-opacity'
+            }[type] || null;
         }
-
-        // Hazard value ↔ label
-        const CLASS_TEXT = ['(no value)', 'Low', 'Moderate', 'High', 'Very High'];
-        function toLabel(v) {
-            if (v == null || v === '') return '(no value)';
-            const n = Number(v);
-            if (!Number.isNaN(n)) return CLASS_TEXT[n] || String(v);
-            const s = String(v).toLowerCase();
-            if (s.includes('very')) return 'Very High';
-            if (s.includes('high')) return 'High';
-            if (s.includes('mod')) return 'Moderate';
-            if (s.includes('low')) return 'Low';
-            return String(v);
-        }
-        function badgeClass(label) {
-            const s = String(label).toLowerCase();
-            if (s.includes('very')) return 'badge b-vhigh';
-            if (s.includes('high')) return 'badge b-high';
-            if (s.includes('mod')) return 'badge b-mod';
-            if (s.includes('low')) return 'badge b-low';
-            return 'badge';
-        }
-        function getHazardValue(props) {
-            // Try common property names from your exports/styles
-            const keys = ['magnitude', 'mag_code', 'hazard_cls', 'class', 'rank', 'level'];
-            for (const k of keys) if (props[k] !== undefined) return props[k];
-            return undefined;
-        }
-        function prettyYearFromLayerId(id) {
-            const m = id && id.match(/20\d{2}/); return m ? m[0] : '—';
-        }
-
-        // ========= On load =========
-        map.on('load', () => {
-            // keep globe/sky if style supports it
-            try { map.setProjection('globe'); } catch { }
+        function setLayerOpacity(id, value) {
             try {
-                if (!map.getLayer('sky')) {
-                    map.addLayer({
-                        id: 'sky', type: 'sky',
-                        paint: { 'sky-type': 'atmosphere', 'sky-atmosphere-sun-intensity': 12 }
-                    },
-                        map.getStyle().layers[0]?.id);
-                }
+                const lyr = map.getLayer(id); if (!lyr) return;
+                const prop = opacityPropForType(lyr.type);
+                if (prop) map.setPaintProperty(id, prop, value);
+                if (lyr.type === 'symbol') { try { map.setPaintProperty(id, 'text-opacity', value); } catch { } }
             } catch { }
+        }
+        function setVisible(id, show) {
+            try { map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none'); } catch { }
+            if (show) setLayerOpacity(id, currentOpacity); // guard against 0 opacity in Studio
+        }
 
-            const status = document.getElementById('status');
-            const yearToLayers = findYearLayers();
+        // Build year dots
+        function buildYearDots(years, current) {
+            yearDots.innerHTML = '';
+            const n = years.length;
+            years.forEach((y, i) => {
+                const pct = n === 1 ? 0 : (i / (n - 1)) * 100;
+                const dot = document.createElement('button');
+                dot.type = 'button';
+                dot.className = 'year-dot';
+                dot.style.left = pct + '%';
+                dot.setAttribute('aria-label', 'Select year ' + y);
+                dot.dataset.year = y;
 
-            // All OFF initially, attach handlers
+                const lbl = document.createElement('div');
+                lbl.className = 'year-dot-label';
+                lbl.style.left = pct + '%';
+                lbl.textContent = String(y);
+
+                dot.addEventListener('click', () => setYear(y));
+                dot.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setYear(y); }
+                });
+
+                yearDots.appendChild(dot);
+                yearDots.appendChild(lbl);
+            });
+            setActiveDot(current);
+        }
+        function setActiveDot(y) {
+            [...yearDots.querySelectorAll('.year-dot')].forEach(el => {
+                el.classList.toggle('active', Number(el.dataset.year) === y);
+            });
+        }
+
+        // Main
+        map.on('load', () => {
+            const styleLayers = map.getStyle()?.layers || [];
+            const yearLayers = {};
+            let total = 0;
+
             YEARS.forEach(y => {
-                const ids = yearToLayers[y] || [];
-                const cb = document.getElementById('y' + y);
-                cb.checked = false;
-                if (!ids.length) { cb.disabled = true; cb.parentElement.title = `No layers in style matching ${y}`; }
+                const re = new RegExp(`(^|[^0-9])${y}([^0-9]|$)`);
+                const ids = styleLayers.filter(l => re.test(l.id)).map(l => l.id);
+                yearLayers[y] = ids;
+                total += ids.length;
                 ids.forEach(id => setVisible(id, false));
-                cb.addEventListener('change', e => ids.forEach(id => setVisible(id, e.target.checked)));
-                // bring above base
-                ids.forEach(id => { try { map.moveLayer(id); } catch { } });
             });
 
-            const total = YEARS.reduce((n, y) => n + (yearToLayers[y]?.length || 0), 0);
-            status.textContent = total ? `Found ${total} layer(s) tagged 2021–2025.` :
-                'No matching layers found (layer IDs must include the year).';
-
-            // Show/Hide all
-            document.getElementById('showAll').onclick = () => {
-                YEARS.forEach(y => {
-                    const cb = document.getElementById('y' + y);
-                    if (!cb.disabled) { cb.checked = true; (yearToLayers[y] || []).forEach(id => setVisible(id, true)); }
-                });
-            };
-            document.getElementById('hideAll').onclick = () => {
-                YEARS.forEach(y => {
-                    const cb = document.getElementById('y' + y);
-                    if (!cb.disabled) { cb.checked = false; (yearToLayers[y] || []).forEach(id => setVisible(id, false)); }
-                });
-            };
-
-            // ========= Interactivity (click + hover) =========
-            const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '320px' });
-
-            function visibleYearLayerIds() {
-                const ids = [];
-                YEARS.forEach(y => (yearToLayers[y] || []).forEach(id => { if (isVisible(id)) ids.push(id); }));
-                return ids;
+            // Choose newest available as default
+            const availableYears = YEARS.filter(y => (yearLayers[y] || []).length);
+            if (availableYears.length) {
+                selectedYear = Math.max(...availableYears);
+                setYear(selectedYear, false);
+            } else {
+                status.textContent = 'No year layers found. Ensure IDs include 2021–2025 and republish.';
             }
+            status.textContent = `Found ${total} year-tagged layer(s).`;
 
-            map.on('click', (e) => {
-                const ids = visibleYearLayerIds();
+            // Build dots + wire slider
+            buildYearDots(YEARS, selectedYear);
+            yearSlider.min = String(Math.min(...YEARS));
+            yearSlider.max = String(Math.max(...YEARS));
+            yearSlider.step = '1';
+            yearSlider.value = String(selectedYear);
+            yearVal.textContent = String(selectedYear);
+            yearLabel.textContent = String(selectedYear);
+
+            yearSlider.addEventListener('input', () => setYear(Number(yearSlider.value)));
+
+            // Opacity slider
+            opSlider.addEventListener('input', () => {
+                currentOpacity = Number(opSlider.value) / 100;
+                opVal.textContent = opSlider.value + '%';
+                (yearLayers[selectedYear] || []).forEach(id => setLayerOpacity(id, currentOpacity));
+            });
+
+            // Click popup
+            const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '320px' });
+            const CLASS_TEXT = ['(no value)', 'Low', 'Moderate', 'High', 'Very High'];
+            const toLabel = v => {
+                if (v == null || v === '') return '(no value)';
+                const n = Number(v);
+                if (!Number.isNaN(n)) return CLASS_TEXT[n] || String(v);
+                const s = String(v).toLowerCase();
+                if (s.includes('very')) return 'Very High';
+                if (s.includes('high')) return 'High';
+                if (s.includes('mod')) return 'Moderate';
+                if (s.includes('low')) return 'Low';
+                return String(v);
+            };
+            const badgeClass = l => {
+                const s = String(l).toLowerCase();
+                if (s.includes('very')) return 'badge b-vhigh';
+                if (s.includes('high')) return 'badge b-high';
+                if (s.includes('mod')) return 'badge b-mod';
+                if (s.includes('low')) return 'badge b-low';
+                return 'badge';
+            };
+
+            map.on('click', e => {
+                const ids = (yearLayers[selectedYear] || []).filter(id => {
+                    return map.getLayoutProperty(id, 'visibility') !== 'none';
+                });
                 if (!ids.length) return;
-
                 const feats = map.queryRenderedFeatures(e.point, { layers: ids });
                 if (!feats.length) return;
 
-                // If multiple found, prefer the one highest in the style order (last returned)
                 const f = feats[feats.length - 1];
-                const props = f.properties || {};
-                const year = prettyYearFromLayerId(f.layer.id);
-                const hazardVal = getHazardValue(props);
-                const label = toLabel(hazardVal);
-
-                // Optional: include numeric hazard_idx if present
-                let idxStr = '';
-                if (props.hazard_idx !== undefined) {
-                    const n = Number(props.hazard_idx);
-                    if (!Number.isNaN(n)) idxStr = `<div class="kv"><div>Index</div><div>${n.toFixed(2)}</div></div>`;
-                }
-
-                const html = `<div class="popup">
-          <div class="h">Flood Hazard — ${year}</div>
-          <div class="kv">
-            <div>Class</div>
-            <div><span class="${badgeClass(label)}">${label}</span></div>
-          </div>
-          ${idxStr}
-        </div>`;
-
-                popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+                const p = f.properties || {};
+                const val = p.magnitude || p.hazard_cls || p.class || '';
+                const lbl = toLabel(val);
+                popup.setLngLat(e.lngLat).setHTML(
+                    `<div class="popup"><div class="h">Flood Hazard — ${selectedYear}</div>
+           <div class="kv"><div>Class</div><div><span class="${badgeClass(lbl)}">${lbl}</span></div></div></div>`
+                ).addTo(map);
             });
 
-            // Pointer cursor when hovering a visible year layer
-            function updateHoverHandlers() {
-                // clear existing (Mapbox GL doesn't have off-by-layer easily; safe to rebind)
-                YEARS.forEach(y => (yearToLayers[y] || []).forEach(id => {
-                    map.on('mouseenter', id, () => { if (isVisible(id)) map.getCanvas().style.cursor = 'pointer'; });
-                    map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
-                }));
+            // helper to switch year
+            function setYear(y, syncSlider = true) {
+                YEARS.forEach(yy => (yearLayers[yy] || []).forEach(id => setVisible(id, false)));
+                (yearLayers[y] || []).forEach(id => setVisible(id, true));
+                selectedYear = y;
+                if (syncSlider) yearSlider.value = String(y);
+                yearVal.textContent = String(y);
+                yearLabel.textContent = String(y);
+                setActiveDot(y);
             }
-            updateHoverHandlers();
+            // expose for dot clicks
+            window.setYear = setYear;
         });
     </script>
 </body>
