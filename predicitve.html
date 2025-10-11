@@ -25,8 +25,8 @@
             border-radius: 14px;
             box-shadow: 0 6px 22px rgba(0, 0, 0, .18);
             padding: 12px 14px;
-            width: 280px;
-            font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif
+            width: 340px;
+            font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif;
         }
 
         .panel h3 {
@@ -54,7 +54,7 @@
         }
 
         .divider {
-            margin: 8px 0;
+            margin: 10px 0;
             border: 0;
             border-top: 1px dashed #cfd8dc
         }
@@ -66,41 +66,78 @@
             margin: 6px 0
         }
 
-        .row label {
-            cursor: pointer
+        select {
+            width: 100%
+        }
+
+        .slider-group {
+            margin: 8px 0 2px
+        }
+
+        .slider-label {
+            font-weight: 700;
+            margin: 0 0 6px
+        }
+
+        .slider-row {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .slider-row input[type=range] {
+            width: 100%
+        }
+
+        /* Year dots under the year slider */
+        .year-dots {
+            position: relative;
+            height: 18px;
+            margin-top: 6px
+        }
+
+        .year-dot {
+            position: absolute;
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #cfd8dc;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, .15);
+            transform: translateX(-50%);
+            cursor: pointer;
+        }
+
+        .year-dot:hover {
+            box-shadow: 0 0 0 2px rgba(30, 136, 229, .25)
+        }
+
+        .year-dot.active {
+            background: #1e88e5
+        }
+
+        .year-dot:focus {
+            outline: 2px solid #1e88e5;
+            outline-offset: 2px
+        }
+
+        .year-dot-label {
+            position: absolute;
+            top: 16px;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #607d8b;
+            user-select: none;
+            pointer-events: none;
         }
 
         .note {
             font-size: 12px;
             color: #607d8b;
-            margin-top: 6px
-        }
-
-        input[type="checkbox"] {
-            accent-color: #1e88e5;
-            width: 16px;
-            height: 16px
-        }
-
-        .buttons {
-            display: flex;
-            gap: 8px;
-            margin: 6px 0 2px
-        }
-
-        .buttons button {
-            background: #1e88e5;
-            color: #fff;
-            border: 0;
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-weight: 700;
-            cursor: pointer
-        }
-
-        .buttons button.secondary {
-            background: #eceff1;
-            color: #263238
+            margin-top: 6px;
+            white-space: pre-line
         }
 
         .popup {
@@ -125,27 +162,25 @@
             font-weight: 700
         }
 
+        /* Warm palette (yellow → red) */
         .b-low {
-            background: #c9d9ff
+            background: hsl(51, 98%, 49%);
+            color: #222
         }
 
         .b-mod {
-            background: #9fb4ff
+            background: hsl(39, 88%, 54%);
+            color: #222
         }
 
         .b-high {
-            background: #5d72ff;
+            background: hsl(23, 93%, 52%);
             color: #fff
         }
 
         .b-vhigh {
-            background: #3d24ff;
+            background: hsl(8, 92%, 48%);
             color: #fff
-        }
-
-        select,
-        .scenario {
-            width: 100%
         }
     </style>
 </head>
@@ -153,20 +188,22 @@
 <body>
     <div id="map"></div>
 
-    <div class="panel" id="panel">
+    <div class="panel">
         <h3>Predicted Flood Hazard (S1)</h3>
 
+        <!-- Legend updated to warm palette -->
         <div class="legend">
-            <div class="row"><span class="sw" style="background:#c9d9ff"></span><span>Low</span></div>
-            <div class="row"><span class="sw" style="background:#9fb4ff"></span><span>Moderate</span></div>
-            <div class="row"><span class="sw" style="background:#5d72ff"></span><span>High</span></div>
-            <div class="row"><span class="sw" style="background:#3d24ff"></span><span>Very High</span></div>
+            <div class="row"><span class="sw" style="background:hsl(51,98%,49%)"></span><span>Low</span></div>
+            <div class="row"><span class="sw" style="background:hsl(39,88%,54%)"></span><span>Moderate</span></div>
+            <div class="row"><span class="sw" style="background:hsl(23,93%,52%)"></span><span>High</span></div>
+            <div class="row"><span class="sw" style="background:hsl(8,92%,48%)"></span><span>Very High</span></div>
         </div>
 
         <hr class="divider" />
 
-        <div class="row scenario">
-            <label for="scenarioSel" style="width:80px">Scenario</label>
+        <!-- Scenario selector -->
+        <div class="row">
+            <label for="scenarioSel" style="min-width:90px">Scenario</label>
             <select id="scenarioSel">
                 <option value="auto" selected>Auto-detect</option>
                 <option value="wet">Wet</option>
@@ -175,40 +212,44 @@
             </select>
         </div>
 
-        <div class="buttons">
-            <button id="showAll">Show all</button>
-            <button id="hideAll" class="secondary">Hide all</button>
+        <hr class="divider" />
+
+        <!-- Year slider + dots -->
+        <div class="slider-group">
+            <div class="slider-label">Flood Magnitude (annual)</div>
+            <div class="row" style="margin:0 0 6px">Year: <span id="yearLabel">—</span></div>
+            <div class="slider-row">
+                <input id="year" type="range" min="2026" max="2030" step="1" value="2030" />
+                <span id="yearVal">2030</span>
+            </div>
+            <div class="year-dots" id="yearDots"></div>
         </div>
 
-        <!-- Year toggles -->
-        <div class="row"><input type="checkbox" id="y2026"><label for="y2026">2026</label></div>
-        <div class="row"><input type="checkbox" id="y2027"><label for="y2027">2027</label></div>
-        <div class="row"><input type="checkbox" id="y2028"><label for="y2028">2028</label></div>
-        <div class="row"><input type="checkbox" id="y2029"><label for="y2029">2029</label></div>
-        <div class="row"><input type="checkbox" id="y2030"><label for="y2030">2030</label></div>
+        <hr class="divider" />
 
-        <div class="note" id="status">Toggle years to view layers.</div>
+        <!-- Opacity slider -->
+        <div class="slider-group">
+            <div class="slider-label">Opacity</div>
+            <div class="slider-row">
+                <input id="op" type="range" min="10" max="100" value="85" />
+                <span id="opv">85%</span>
+            </div>
+        </div>
+
+        <div class="note" id="status">Loading…</div>
     </div>
 
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.js"></script>
     <script>
-        // ========= Config =========
+        // ======== Config ========
         mapboxgl.accessToken = 'pk.eyJ1Ijoia3lhaGFuenp6IiwiYSI6ImNtZGR2YmpqMDA4enIya29zY21nY3hxMjQifQ.U3RNv0EJn1yPHwF41JZALA';
-        const STYLE_URL = 'mapbox://styles/kyahanzzz/cmgglgun3009x01ri1tf89vud';
+        const STYLE_URL = 'mapbox://styles/kyahanzzz/cmggxj55x00av01re47du0306'; // updated style
 
         const YEARS = [2026, 2027, 2028, 2029, 2030];
         const SCENARIOS = ['dry', 'normal', 'wet'];
-        const TYPE_OK = new Set(['fill', 'line']); // only toggle paint layers
+        const TYPE_OK = new Set(['fill', 'line']);
 
-        // Persist UI state
-        const state = {
-            scenario: 'auto',
-            years: Object.fromEntries(YEARS.map(y => [y, false]))
-        };
-        // show 2028 by default
-        state.years[2028] = true;
-
-        // ========= Map =========
+        // ======== Map ========
         const map = new mapboxgl.Map({
             container: 'map',
             style: STYLE_URL,
@@ -218,12 +259,43 @@
         map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
         map.addControl(new mapboxgl.ScaleControl({ unit: 'metric' }), 'bottom-right');
 
-        // ========= Helpers =========
-        const setVisible = (id, show) => { try { map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none'); } catch { } };
-        const isVisible = id => { try { return map.getLayoutProperty(id, 'visibility') !== 'none'; } catch { return false; } };
+        // ======== UI elements ========
+        const statusEl = document.getElementById('status');
+        const scenarioSel = document.getElementById('scenarioSel');
+        const yearSlider = document.getElementById('year');
+        const yearVal = document.getElementById('yearVal');
+        const yearLabel = document.getElementById('yearLabel');
+        const yearDots = document.getElementById('yearDots');
+        const opSlider = document.getElementById('op');
+        const opVal = document.getElementById('opv');
+
+        // ======== Helpers ========
+        let currentOpacity = 0.85;
+        let selectedYear = 2030;
+        let selectedScenario = 'auto';
+
+        function opacityPropForType(type) {
+            return {
+                'fill': 'fill-opacity', 'line': 'line-opacity', 'circle': 'circle-opacity',
+                'symbol': 'icon-opacity', 'raster': 'raster-opacity', 'heatmap': 'heatmap-opacity',
+                'fill-extrusion': 'fill-extrusion-opacity', 'background': 'background-opacity'
+            }[type] || null;
+        }
+        function setLayerOpacity(id, value) {
+            try {
+                const lyr = map.getLayer(id); if (!lyr) return;
+                const prop = opacityPropForType(lyr.type);
+                if (prop) map.setPaintProperty(id, prop, value);
+                if (lyr.type === 'symbol') { try { map.setPaintProperty(id, 'text-opacity', value); } catch { } }
+            } catch { }
+        }
+        function setVisible(id, show) {
+            try { map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none'); } catch { }
+            if (show) setLayerOpacity(id, currentOpacity); // guard against 0-opacity
+        }
 
         const CLASS_TEXT = ['(no value)', 'Low', 'Moderate', 'High', 'Very High'];
-        const toLabel = v => {
+        function toLabel(v) {
             if (v == null || v === '') return '(no value)';
             const n = Number(v); if (!Number.isNaN(n)) return CLASS_TEXT[n] || String(v);
             const s = String(v).toLowerCase();
@@ -232,177 +304,145 @@
             if (s.includes('mod')) return 'Moderate';
             if (s.includes('low')) return 'Low';
             return String(v);
-        };
-        const badgeClass = label => {
-            const s = String(label).toLowerCase();
+        }
+        function badgeClass(l) {
+            const s = String(l).toLowerCase();
             if (s.includes('very')) return 'badge b-vhigh';
             if (s.includes('high')) return 'badge b-high';
             if (s.includes('mod')) return 'badge b-mod';
             if (s.includes('low')) return 'badge b-low';
             return 'badge';
-        };
-        const getHazardValue = props => {
-            for (const k of ['magnitude', 'mag_code', 'hazard_cls', 'class', 'rank', 'level']) if (props[k] !== undefined) return props[k];
-            return undefined;
-        };
-        const prettyYearFromLayerId = id => { const m = id && id.match(/20\d{2}/); return m ? m[0] : '—'; };
-        const prettyScenarioFromLayerId = id => { const m = id && id.toLowerCase().match(/\b(dry|normal|wet)\b/); return m ? (m[1][0].toUpperCase() + m[1].slice(1)) : '—'; };
+        }
 
         function parseMetaFromId(id) {
             if (!id) return {};
-            const yearMatch = id.match(/20(2[6-9]|30)/); // 2026..2030
-            const scenMatch = id.toLowerCase().match(/\b(dry|normal|wet)\b/);
-            return { year: yearMatch ? Number(yearMatch[0]) : undefined, scenario: scenMatch ? scenMatch[1] : undefined };
+            const y = (id.match(/20(2[6-9]|30)/) || [])[0];
+            const s = ((id.toLowerCase().match(/\b(dry|normal|wet)\b/) || [])[1]) || undefined;
+            return { year: y ? Number(y) : undefined, scenario: s };
         }
 
         function findPredictiveLayers() {
-            const style = map.getStyle();
-            const layers = style?.layers || [];
-            const found = {}; YEARS.forEach(y => { found[y] = { all: [], dry: [], normal: [], wet: [] }; });
-
-            // collect candidates (fill/line only with year in id)
-            const candidates = layers.filter(l => TYPE_OK.has(l.type) && /20(2[6-9]|30)/.test(l.id));
-
-            // prefer fills over outlines
-            candidates.sort((a, b) => (/fill/i.test(b.id) ? 1 : 0) - (/fill/i.test(a.id) ? 1 : 0));
-
-            // bucket by year + scenario
-            for (const l of candidates) {
-                const { year, scenario } = parseMetaFromId(l.id);
-                if (!year || !YEARS.includes(year)) continue;
-                found[year].all.push(l.id);
-                if (scenario && SCENARIOS.includes(scenario)) found[year][scenario].push(l.id);
-            }
+            const found = {};
+            YEARS.forEach(y => found[y] = { all: [], dry: [], normal: [], wet: [] });
+            (map.getStyle()?.layers || [])
+                .filter(l => TYPE_OK.has(l.type) && /20(2[6-9]|30)/.test(l.id))
+                .forEach(l => {
+                    const { year, scenario } = parseMetaFromId(l.id);
+                    if (!year || !YEARS.includes(year)) return;
+                    found[year].all.push(l.id);
+                    if (scenario && ['dry', 'normal', 'wet'].includes(scenario)) found[year][scenario].push(l.id);
+                });
             return found;
         }
 
-        function activeScenarioKey(yearToLayers) {
-            const sel = state.scenario;
-            if (sel !== 'auto') return sel;
-            const testY = YEARS.find(y => (yearToLayers[y]?.all?.length || 0) > 0);
+        function activeScenarioKey(y2l) {
+            if (selectedScenario !== 'auto') return selectedScenario;
+            const testY = YEARS.find(y => (y2l[y]?.all?.length || 0) > 0);
             if (!testY) return 'wet';
-            for (const s of ['wet', 'normal', 'dry']) if ((yearToLayers[testY][s] || []).length) return s;
+            for (const s of ['wet', 'normal', 'dry']) if ((y2l[testY][s] || []).length) return s;
             return 'wet';
         }
-        function idsForYear(year, yearToLayers) {
-            const scen = activeScenarioKey(yearToLayers);
-            const pool = (yearToLayers[year] || {});
+
+        function idsForYear(y, y2l) {
+            const scen = activeScenarioKey(y2l);
+            const pool = y2l[y] || {};
             return (pool[scen] && pool[scen].length) ? pool[scen] : (pool.all || []);
         }
 
-        function wireUI(yearToLayers, initial = false) {
-            // scenario selector
-            const scenarioSel = document.getElementById('scenarioSel');
-            const anyScenarioTagged = YEARS.some(y => ['wet', 'normal', 'dry'].some(s => (yearToLayers[y]?.[s] || []).length));
-            scenarioSel.parentElement.style.display = anyScenarioTagged ? '' : 'none';
-            scenarioSel.value = state.scenario;
-            scenarioSel.onchange = () => {
-                state.scenario = scenarioSel.value;
-                YEARS.forEach(y => {
-                    const allIds = (yearToLayers[y]?.all) || [];
-                    allIds.forEach(id => setVisible(id, false));
-                    if (state.years[y]) idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
-                });
-            };
-
-            // year checkboxes
-            YEARS.forEach(y => {
-                const allIds = (yearToLayers[y]?.all) || [];
-                const cb = document.getElementById('y' + y);
-                cb.disabled = !allIds.length;
-                cb.checked = !!state.years[y];
-
-                allIds.forEach(id => setVisible(id, false));
-                if (state.years[y]) idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
-                allIds.forEach(id => { try { map.moveLayer(id); } catch { } });
-
-                cb.onchange = e => {
-                    state.years[y] = e.target.checked;
-                    allIds.forEach(id => setVisible(id, false));
-                    if (e.target.checked) idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
-                };
-            });
-
-            document.getElementById('showAll').onclick = () => {
-                YEARS.forEach(y => {
-                    const allIds = (yearToLayers[y]?.all) || [];
-                    if (!allIds.length) return;
-                    state.years[y] = true;
-                    document.getElementById('y' + y).checked = true;
-                    allIds.forEach(id => setVisible(id, false));
-                    idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
-                });
-            };
-            document.getElementById('hideAll').onclick = () => {
-                YEARS.forEach(y => {
-                    const allIds = (yearToLayers[y]?.all) || [];
-                    state.years[y] = false;
-                    document.getElementById('y' + y).checked = false;
-                    allIds.forEach(id => setVisible(id, false));
-                });
-            };
-
-            if (initial) {
-                YEARS.forEach(y => {
-                    const allIds = (yearToLayers[y]?.all) || [];
-                    allIds.forEach(id => setVisible(id, false));
-                    if (state.years[y]) idsForYear(y, yearToLayers).forEach(id => setVisible(id, true));
-                });
-            }
+        function setYear(y, y2l) {
+            YEARS.forEach(yy => (y2l[yy]?.all || []).forEach(id => setVisible(id, false)));
+            idsForYear(y, y2l).forEach(id => setVisible(id, true));
+            selectedYear = y;
+            yearSlider.value = String(y);
+            yearVal.textContent = String(y);
+            yearLabel.textContent = String(y);
+            setActiveDot(y);
         }
 
-        function addInteractivity(yearToLayers) {
-            const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '320px' });
-            const anyVisible = () => YEARS.some(y => (yearToLayers[y]?.all || []).some(id => isVisible(id)));
-
-            map.on('click', (e) => {
-                if (!anyVisible()) return;
-                const ids = YEARS.flatMap(y => (yearToLayers[y]?.all || []).filter(id => isVisible(id)));
-                const feats = map.queryRenderedFeatures(e.point, { layers: ids });
-                if (!feats.length) return;
-
-                const f = feats[feats.length - 1];
-                const props = f.properties || {};
-                const year = (f.layer && f.layer.id) ? (f.layer.id.match(/20\d{2}/) || ['—'])[0] : '—';
-                const scenario = (f.layer && f.layer.id) ? ((f.layer.id.toLowerCase().match(/\b(dry|normal|wet)\b/) || [])[1] || '') : '';
-                const scenNice = scenario ? (scenario[0].toUpperCase() + scenario.slice(1)) : '—';
-                const label = toLabel(getHazardValue(props));
-                const idx = props.flood_mag_idx ?? props.hazard_idx;
-                const idxNum = Number(idx);
-                const idxStr = !Number.isNaN(idxNum) ? `<div class="kv"><div>Index</div><div>${idxNum.toFixed(2)}</div></div>` : '';
-
-                popup.setLngLat(e.lngLat).setHTML(`
-          <div class="popup">
-            <div class="h">Predicted Flood Hazard — ${year} (${scenNice})</div>
-            <div class="kv"><div>Class</div><div><span class="${badgeClass(label)}">${label}</span></div></div>
-            ${idxStr}
-          </div>`).addTo(map);
+        // Year dots
+        function buildYearDots(years, current) {
+            yearDots.innerHTML = '';
+            const n = years.length;
+            years.forEach((y, i) => {
+                const pct = n === 1 ? 0 : (i / (n - 1)) * 100;
+                const dot = document.createElement('button');
+                dot.type = 'button'; dot.className = 'year-dot'; dot.style.left = pct + '%';
+                dot.dataset.year = String(y);
+                dot.setAttribute('aria-label', 'Select year ' + y);
+                dot.addEventListener('click', () => setYear(y, y2lCache));
+                dot.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setYear(y, y2lCache); } });
+                const lbl = document.createElement('div');
+                lbl.className = 'year-dot-label'; lbl.style.left = pct + '%'; lbl.textContent = String(y);
+                yearDots.appendChild(dot); yearDots.appendChild(lbl);
             });
-
-            YEARS.forEach(y => (yearToLayers[y]?.all || []).forEach(id => {
-                map.on('mouseenter', id, () => { if (isVisible(id)) map.getCanvas().style.cursor = 'pointer'; });
-                map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
-            }));
+            setActiveDot(current);
         }
+        function setActiveDot(y) {
+            [...yearDots.querySelectorAll('.year-dot')].forEach(el => el.classList.toggle('active', Number(el.dataset.year) === y));
+        }
+
+        // ======== Wiring ========
+        let y2lCache = null;
 
         map.on('load', () => {
             try { map.setProjection('globe'); } catch { }
-            try {
-                if (!map.getLayer('sky')) {
-                    map.addLayer({ id: 'sky', type: 'sky', paint: { 'sky-type': 'atmosphere', 'sky-atmosphere-sun-intensity': 12 } },
-                        map.getStyle().layers[0]?.id);
-                }
-            } catch { }
 
-            const found = findPredictiveLayers();
-            // tiny status line
-            const total = YEARS.reduce((n, y) => n + (found[y]?.all?.length || 0), 0);
-            document.getElementById('status').textContent = total
-                ? `Found ${total} predictive layer(s) tagged 2026–2030.`
-                : 'No matching predictive layers found (layer IDs must include year).';
+            y2lCache = findPredictiveLayers();
 
-            wireUI(found, true);
-            addInteractivity(found);
+            // start hidden
+            YEARS.forEach(y => (y2lCache[y]?.all || []).forEach(id => setVisible(id, false)));
+
+            const total = YEARS.reduce((n, y) => n + (y2lCache[y]?.all?.length || 0), 0);
+            statusEl.textContent = total ? `Found ${total} predictive layer(s) tagged 2026–2030.` : 'No matching predictive layers found.';
+
+            // default to newest available year
+            const availableYears = YEARS.filter(y => idsForYear(y, y2lCache).length);
+            selectedYear = availableYears.length ? Math.max(...availableYears) : 2030;
+
+            // build dots + set initial year
+            buildYearDots(YEARS, selectedYear);
+            yearSlider.value = String(selectedYear);
+            yearVal.textContent = String(selectedYear);
+            yearLabel.textContent = String(selectedYear);
+            setYear(selectedYear, y2lCache);
+
+            // scenario changes
+            scenarioSel.onchange = () => {
+                selectedScenario = scenarioSel.value;
+                setYear(selectedYear, y2lCache); // re-apply with new scenario
+            };
+
+            // year slider change
+            yearSlider.addEventListener('input', () => setYear(Number(yearSlider.value), y2lCache));
+
+            // opacity change
+            opSlider.addEventListener('input', () => {
+                currentOpacity = Number(opSlider.value) / 100;
+                opVal.textContent = opSlider.value + '%';
+                idsForYear(selectedYear, y2lCache).forEach(id => setLayerOpacity(id, currentOpacity));
+            });
+
+            // click popup
+            const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '320px' });
+            map.on('click', (e) => {
+                const ids = idsForYear(selectedYear, y2lCache).filter(id => map.getLayoutProperty(id, 'visibility') !== 'none');
+                if (!ids.length) return;
+                const feats = map.queryRenderedFeatures(e.point, { layers: ids });
+                if (!feats.length) return;
+                const f = feats[feats.length - 1], p = f.properties || {};
+                const label = toLabel(p.magnitude ?? p.mag_code ?? p.hazard_cls ?? p.class ?? p.rank ?? p.level ?? '');
+                const scen = activeScenarioKey(y2lCache);
+                const scenNice = scen ? (scen[0].toUpperCase() + scen.slice(1)) : '—';
+                const idxNum = Number(p.flood_mag_idx ?? p.hazard_idx);
+                const idxStr = !Number.isNaN(idxNum) ? `<div class="kv"><div>Index</div><div>${idxNum.toFixed(2)}</div></div>` : '';
+                popup.setLngLat(e.lngLat).setHTML(
+                    `<div class="popup">
+            <div class="h">Predicted Flood Hazard — ${selectedYear} (${scenNice})</div>
+            <div class="kv"><div>Class</div><div><span class="${badgeClass(label)}">${label}</span></div></div>
+            ${idxStr}
+          </div>`
+                ).addTo(map);
+            });
         });
     </script>
 </body>
