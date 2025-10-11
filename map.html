@@ -96,13 +96,13 @@
     <!-- Legend + Layer toggles -->
     <div class="panel legend" id="legend">
         <div style="font-weight:700;margin-bottom:6px">Flood Hazard (S1)</div>
-        <div class="row"><span class="swatch" style="background:hsl(215, 91%, 85%)"></span><span class="lbl">Low</span>
+        <div class="row"><span class="swatch" style="background:hsl(51, 98%, 49%)"></span><span class="lbl">Low</span>
         </div>
-        <div class="row"><span class="swatch" style="background:hsl(227, 81%, 76%)"></span><span
+        <div class="row"><span class="swatch" style="background:hsl(39, 88%, 54%)"></span><span
                 class="lbl">Moderate</span></div>
-        <div class="row"><span class="swatch" style="background:hsl(228, 88%, 64%)"></span><span class="lbl">High</span>
+        <div class="row"><span class="swatch" style="background:hsl(23, 93%, 52%)"></span><span class="lbl">High</span>
         </div>
-        <div class="row"><span class="swatch" style="background:hsl(258, 93%, 48%)"></span><span class="lbl">Very
+        <div class="row"><span class="swatch" style="background:hsl(8, 92%, 48%)"></span><span class="lbl">Very
                 High</span></div>
 
         <div class="toggles">
@@ -112,17 +112,20 @@
         </div>
     </div>
 
-    <div class="credit">Source: GEE (NASADEM, CHIRPS, Sentinel-1) • Styled in Mapbox Studio</div>
+    <div class="credit">Source: GEE (NASADEM, CHIRPS, Sentinel-1) • Styled in Mapbox Studio</div>>Source: GEE (NASADEM,
+    CHIRPS, Sentinel-1) • Styled in Mapbox Studio</div>
 
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.5.1/mapbox-gl.js"></script>
     <script>
-        // ================== CONFIG ==================
+        // ================== CONFIG (UPDATED STYLE) ==================
         mapboxgl.accessToken = 'pk.eyJ1Ijoia3lhaGFuenp6IiwiYSI6ImNtZGR2YmpqMDA4enIya29zY21nY3hxMjQifQ.U3RNv0EJn1yPHwF41JZALA';
-        const STYLE_URL = 'mapbox://styles/kyahanzzz/cmgdd0gv9005f01re5gl09lxu';
+        // ❗ New Mapbox Studio style you gave
+        const STYLE_URL = 'mapbox://styles/kyahanzzz/cmfs8bd3f00jh01s688w5am6o';
 
-        const POLYGON_LAYER_ID = 'tugbo-flood-magnitude-polygon-5jmg4l';
-        const PIXEL_LAYER_ID = 'tugbo-hazard-pixels-detail-st-5i34my';
-        let SATELLITE_LAYER_ID = 'mapbox-satellite'; // detect or auto-add if missing
+        // Optional hardcoded fallbacks (will be auto-detected if missing)
+        let POLYGON_LAYER_ID = 'tugbo-flood-magnitude-polygon-5jmg4l';
+        let PIXEL_LAYER_ID = 'tugbo-hazard-pixels-detail-st-5i34my';
+        let SATELLITE_LAYER_ID = 'mapbox-satellite';
 
         // ---------- Helpers (shared) ----------
         const PIXEL_LABELS = {
@@ -199,6 +202,43 @@
             if (t === 'symbol') { try { map.setPaintProperty(id, 'text-opacity', value) } catch { } }
         }
 
+        // --- Auto-detection helpers for your updated style ---
+        function autoFindPolygonLayerId() {
+            const style = map.getStyle();
+            if (!style?.layers) return null;
+            // Prefer fill layers that look like flood polygons
+            const candidates = style.layers.filter(l => l.type === 'fill' && /tugbo|flood|hazard|polygon|magnitude/i.test(l.id));
+            // If any has a paint fill-color with step/match on magnitude/class, take that first
+            const score = (l) => {
+                let s = 0;
+                const p = l.paint || {};
+                const fc = p['fill-color'];
+                const fo = p['fill-opacity'];
+                if (fc && (JSON.stringify(fc).match(/magnitude|class|hazard/i))) s += 3;
+                if (/polygon/i.test(l.id)) s += 2;
+                if (/magnitude|hazard/i.test(l.id)) s += 2;
+                if (fo !== undefined) s += 1;
+                return s;
+            };
+            candidates.sort((a, b) => score(b) - score(a));
+            return candidates[0]?.id || null;
+        }
+        function autoFindPixelLayerId() {
+            const style = map.getStyle();
+            if (!style?.layers) return null;
+            // Pixels are usually circle or fill layers with hazard/pixel names
+            const candidates = style.layers.filter(l => (l.type === 'circle' || l.type === 'fill' || l.type === 'heatmap') && /tugbo|hazard|pixel|s1|sentinel/i.test(l.id));
+            const score = (l) => {
+                let s = 0;
+                if (l.type === 'circle') s += 3;
+                if (/pixel|pix|s1|sentinel/i.test(l.id)) s += 2;
+                if (/hazard|magnitude/i.test(l.id)) s += 2;
+                return s;
+            };
+            candidates.sort((a, b) => score(b) - score(a));
+            return candidates[0]?.id || null;
+        }
+
         // Satellite handling
         function autoDetectSatelliteLayerId() {
             const candidates = ['mapbox-satellite', 'satellite', 'satellite-imagery', 'satellite-raster', 'satellite-tiles'];
@@ -233,9 +273,18 @@
         }
 
         map.on('load', () => {
+            // Try auto-detecting new layer IDs from the updated style
+            if (!map.getLayer(POLYGON_LAYER_ID)) {
+                const autoPoly = autoFindPolygonLayerId();
+                if (autoPoly) POLYGON_LAYER_ID = autoPoly;
+            }
+            if (!map.getLayer(PIXEL_LAYER_ID)) {
+                const autoPix = autoFindPixelLayerId();
+                if (autoPix) PIXEL_LAYER_ID = autoPix;
+            }
+
             const polyExists = !!map.getLayer(POLYGON_LAYER_ID);
             const pixExists = !!map.getLayer(PIXEL_LAYER_ID);
-
             const satId = ensureSatelliteLayerBottom();
 
             // Z-order: Satellite bottom; Pixel very top for clicks; Polygon just under pixel
@@ -251,8 +300,8 @@
             const tPoly = document.getElementById('toggle-polygons');
             const tPix = document.getElementById('toggle-pixels');
             const tSat = document.getElementById('toggle-satellite');
-            if (!polyExists) { tPoly.checked = false; tPoly.disabled = true; tPoly.parentElement.title = 'Polygon layer not found'; }
-            if (!pixExists) { tPix.checked = false; tPix.disabled = true; tPix.parentElement.title = 'Pixel layer not found'; }
+            if (!polyExists) { tPoly.checked = false; tPoly.disabled = true; tPoly.parentElement.title = 'Polygon layer not found (auto-detect failed)'; }
+            if (!pixExists) { tPix.checked = false; tPix.disabled = true; tPix.parentElement.title = 'Pixel layer not found (auto-detect failed)'; }
             if (!map.getLayer(satId)) { tSat.checked = false; tSat.disabled = true; tSat.parentElement.title = 'Satellite layer not found'; }
 
             tPoly.addEventListener('change', e => {
@@ -293,7 +342,7 @@
             ${renderPixelTable(p)}
           </div>`;
                 } else {
-                    const cls = getPixelClass(p); // polygons carry 'magnitude' in this style
+                    const cls = getPixelClass(p); // polygons carry 'magnitude' or 'hazard_cls'
                     html = `<div class="popup">
             <div style="font-weight:700;margin-bottom:6px">Polygon</div>
             <div><b>Hazard Class:</b> ${toClassLabel(cls)}</div>
